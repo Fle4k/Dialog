@@ -16,17 +16,24 @@ struct InputArea: View {
                 }
                 .buttonStyle(.bordered)
                 .tint(currentSpeaker == speakerAName ? .blue : .gray)
+                .fixedSize()
                 
                 Button(speakerBName) {
                     currentSpeaker = speakerBName
                 }
                 .buttonStyle(.bordered)
                 .tint(currentSpeaker == speakerBName ? .blue : .gray)
+                .fixedSize()
             }
             
-            TextField("Enter dialogue...", text: $currentText, axis: .vertical)
-                .textFieldStyle(.roundedBorder)
-                .lineLimit(3...6)
+            TextEditor(text: $currentText)
+                .frame(minHeight: 44, maxHeight: 120)
+                .frame(maxWidth: .infinity)
+                .padding(4)
+                .background(
+                    RoundedRectangle(cornerRadius: 8)
+                        .stroke(Color.gray.opacity(0.2), lineWidth: 1)
+                )
                 .focused($isTextFieldFocused)
             
             Button("Add Dialogue") {
@@ -34,7 +41,9 @@ struct InputArea: View {
             }
             .buttonStyle(.borderedProminent)
             .disabled(currentText.isEmpty)
+            .fixedSize()
         }
+        .frame(maxWidth: .infinity, alignment: .center)
         .padding()
     }
 } 

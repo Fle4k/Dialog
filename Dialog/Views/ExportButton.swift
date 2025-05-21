@@ -17,8 +17,8 @@ struct ExportButton: View {
 #Preview {
     ExportButton(
         dialogue: [
-            DialogueLine(speaker: "Alice", text: "Hello, how are you?"),
-            DialogueLine(speaker: "Bob", text: "I'm doing great, thanks!")
+        DialogueLine(speaker: "Alice", text: "Hello, how are you?"),
+        DialogueLine(speaker: "Bob", text: "I'm doing great, thanks!")
         ],
         sceneTitle: "SampleScene"
     )

@@ -11,18 +11,23 @@ import UIKit
 struct PersistentTextField: UIViewRepresentable {
     @Binding var text: String
     var onSubmit: () -> Void
+    @Binding var isFocused: Bool
+    
+    init(text: Binding<String>, onSubmit: @escaping () -> Void, isFocused: Binding<Bool>? = nil) {
+        self._text = text
+        self.onSubmit = onSubmit
+        self._isFocused = isFocused ?? .constant(false)
+    }
     
     func makeUIView(context: Context) -> UITextView {
         let textView = UITextView()
         textView.delegate = context.coordinator
         textView.font = .preferredFont(forTextStyle: .body)
         textView.isScrollEnabled = true
-        textView.backgroundColor = .systemBackground
-        textView.layer.borderColor = UIColor.systemGray4.cgColor
-        textView.layer.borderWidth = 1
-        textView.layer.cornerRadius = 6
-        textView.textContainerInset = UIEdgeInsets(top: 8, left: 4, bottom: 8, right: 4)
-        textView.returnKeyType = .send
+        textView.backgroundColor = UIColor.systemGray6
+        textView.layer.cornerRadius = 8
+        textView.textContainerInset = UIEdgeInsets(top: 8, left: 8, bottom: 8, right: 8)
+        textView.returnKeyType = .done
         textView.text = text
         
         // Set initial height to single line
@@ -35,6 +40,13 @@ struct PersistentTextField: UIViewRepresentable {
     func updateUIView(_ uiView: UITextView, context: Context) {
         if text != uiView.text {
             uiView.text = text
+        }
+        
+        // Handle focus changes
+        if isFocused && !uiView.isFirstResponder {
+            uiView.becomeFirstResponder()
+        } else if !isFocused && uiView.isFirstResponder {
+            uiView.resignFirstResponder()
         }
         
         // Calculate and update height based on content
@@ -63,12 +75,24 @@ struct PersistentTextField: UIViewRepresentable {
             parent.text = textView.text
         }
         
+        func textViewDidBeginEditing(_ textView: UITextView) {
+            if !parent.isFocused {
+                parent.isFocused = true
+            }
+        }
+        
+        func textViewDidEndEditing(_ textView: UITextView) {
+            if parent.isFocused {
+                parent.isFocused = false
+            }
+        }
+        
         func textView(_ textView: UITextView, shouldChangeTextIn range: NSRange, replacementText string: String) -> Bool {
+            // Check if return key is pressed
             if string == "\n" {
-                if !textView.text.isEmpty {
-                    parent.onSubmit()
-                }
-                return false
+                textView.resignFirstResponder() // Dismiss keyboard
+                parent.onSubmit()
+                return false // Don't add the newline
             }
             return true
         }
@@ -110,62 +134,41 @@ struct DialogueInputArea: View {
     let onAdd: () -> Void
     let onRename: (String) -> Void
     @Binding var isTextFieldFocused: Bool
-    @Binding var dynamicHeight: CGFloat
 
-    @FocusState private var localTextFieldFocused: Bool
-    
     var body: some View {
-        GeometryReader { geometry in
-            VStack(spacing: 0) {
-                HStack(spacing: 12) {
-                    SpeakerButton(
-                        name: speakerAName,
-                        isSelected: currentSpeaker == speakerAName,
-                        onTap: { onSpeakerSwitch(speakerAName) },
-                        onLongPress: { onRename(speakerAName) }
-                    )
-                    
-                    SpeakerButton(
-                        name: speakerBName,
-                        isSelected: currentSpeaker == speakerBName,
-                        onTap: { onSpeakerSwitch(speakerBName) },
-                        onLongPress: { onRename(speakerBName) }
-                    )
-                }
-                .padding(.horizontal)
-                .padding(.vertical, 8)
+        VStack(spacing: 0) {
+            HStack(spacing: 12) {
+                SpeakerButton(
+                    name: speakerAName,
+                    isSelected: currentSpeaker == speakerAName,
+                    onTap: { onSpeakerSwitch(speakerAName) },
+                    onLongPress: { onRename(speakerAName) }
+                )
                 
-                HStack {
-                    AutoExpandingTextView(
-                        text: $currentText,
-                        onCommit: onAdd,
-                        dynamicHeight: $dynamicHeight,
-                        maxLines: 4,
-                        availableWidth: geometry.size.width - 32
-                    )
-                    .frame(height: dynamicHeight)
-                    .fixedSize(horizontal: false, vertical: true)
-                    .focused($localTextFieldFocused)
-                }
-                .frame(maxWidth: .infinity)
-                .background(Color(.systemBackground))
-                .cornerRadius(8)
-                .padding(.horizontal)
-                .padding(.bottom, 8)
+                SpeakerButton(
+                    name: speakerBName,
+                    isSelected: currentSpeaker == speakerBName,
+                    onTap: { onSpeakerSwitch(speakerBName) },
+                    onLongPress: { onRename(speakerBName) }
+                )
             }
-            .frame(maxWidth: .infinity, alignment: .bottom)
+            .padding(.horizontal)
+            .padding(.vertical, 8)
+            
+            PersistentTextField(
+                text: $currentText, 
+                onSubmit: {
+                    if !currentText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
+                        onAdd()
+                    }
+                },
+                isFocused: $isTextFieldFocused
+            )
+            .frame(maxWidth: .infinity)
+            .padding(.horizontal)
+            .padding(.bottom, 8)
         }
-        .frame(height: dynamicHeight + 70)
         .background(Color(.systemBackground))
-        .shadow(radius: 2)
-        .onChange(of: isTextFieldFocused) {
-            localTextFieldFocused = isTextFieldFocused
-        }
-        .onChange(of: localTextFieldFocused) {
-            if isTextFieldFocused != localTextFieldFocused {
-                isTextFieldFocused = localTextFieldFocused
-            }
-        }
     }
 }
 
@@ -178,7 +181,6 @@ struct ContentView: View {
     @State private var showingRenameDialog = false
     @State private var speakerToRename = ""
     @State private var newSpeakerName = ""
-    @State private var dynamicHeight: CGFloat = 36
     @State private var editingDialogue: Dialogue? = nil
     @State private var editedText: String = ""
     @State private var editedSpeaker: String = ""
@@ -223,8 +225,7 @@ struct ContentView: View {
                         newSpeakerName = speaker
                         showingRenameDialog = true
                     },
-                    isTextFieldFocused: .constant(false),
-                    dynamicHeight: $dynamicHeight
+                    isTextFieldFocused: .constant(false)
                 )
             }
             .navigationTitle("Dialogue")

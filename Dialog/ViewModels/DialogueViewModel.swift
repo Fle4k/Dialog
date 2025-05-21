@@ -12,48 +12,62 @@ class DialogueViewModel: ObservableObject {
     
     private var scene: DialogueScene
     private var onSceneUpdate: (DialogueScene) -> Void
+    private var lastDeletedDialogue: (index: Int, dialogue: Dialogue)?
     
     init(scene: DialogueScene, onSceneUpdate: @escaping (DialogueScene) -> Void) {
         self.scene = scene
         self.onSceneUpdate = onSceneUpdate
         self.dialogues = scene.dialogues
-        // Always start with A and B for new scenes
-        self.speakerAName = "A"
-        self.speakerBName = "B"
+        self.speakerAName = scene.speakerAName
+        self.speakerBName = scene.speakerBName
+    }
+    
+    private func updateScene() {
+        var updatedScene = scene
+        updatedScene.dialogues = dialogues
+        updatedScene.speakerAName = speakerAName
+        updatedScene.speakerBName = speakerBName
+        updatedScene.updatedAt = Date()
+        onSceneUpdate(updatedScene)
+        scene = updatedScene
     }
     
     func addDialogue() {
-        guard !currentText.isEmpty else { return }
-        let dialogue = Dialogue(speaker: currentSpeaker, text: currentText)
+        let textToAdd = currentText.trimmingCharacters(in: .whitespacesAndNewlines)
+        
+        guard !textToAdd.isEmpty else {
+            currentText = ""
+            return
+        }
+        
+        let dialogue = Dialogue(speaker: currentSpeaker, text: textToAdd)
         dialogues.append(dialogue)
+        updateScene()
         
-        // Update the scene
-        scene.dialogues = dialogues
-        scene.updatedAt = Date()
-        onSceneUpdate(scene)
-        
-        // Clear the text field after submission
+        // Clear text immediately
         currentText = ""
     }
     
     func switchSpeaker(to newSpeaker: String) {
-        currentSpeaker = newSpeaker.uppercased()
+        currentSpeaker = newSpeaker
     }
     
     func renameSpeakerA(to newName: String) {
         speakerAName = newName
-        if currentSpeaker == "A" {
+        if currentSpeaker == scene.speakerAName {
             currentSpeaker = newName
         }
-        updateExistingDialogues(from: "A", to: newName)
+        updateExistingDialogues(from: scene.speakerAName, to: newName)
+        updateScene()
     }
     
     func renameSpeakerB(to newName: String) {
         speakerBName = newName
-        if currentSpeaker == "B" {
+        if currentSpeaker == scene.speakerBName {
             currentSpeaker = newName
         }
-        updateExistingDialogues(from: "B", to: newName)
+        updateExistingDialogues(from: scene.speakerBName, to: newName)
+        updateScene()
     }
     
     private func updateExistingDialogues(from oldName: String, to newName: String) {
@@ -62,9 +76,7 @@ class DialogueViewModel: ObservableObject {
                 dialogues[index] = Dialogue(speaker: newName, text: dialogue.text)
             }
         }
-        scene.dialogues = dialogues
-        scene.updatedAt = Date()
-        onSceneUpdate(scene)
+        updateScene()
     }
     
     func startNewInput() {
@@ -104,9 +116,24 @@ class DialogueViewModel: ObservableObject {
     func updateDialogue(id: UUID, newSpeaker: String, newText: String) {
         if let index = dialogues.firstIndex(where: { $0.id == id }) {
             dialogues[index] = Dialogue(speaker: newSpeaker, text: newText)
-            scene.dialogues = dialogues
-            scene.updatedAt = Date()
-            onSceneUpdate(scene)
+            updateScene()
+        }
+    }
+    
+    @MainActor
+    func undoLastAction() {
+        if let lastDeleted = lastDeletedDialogue {
+            dialogues.insert(lastDeleted.dialogue, at: min(lastDeleted.index, dialogues.count))
+            updateScene()
+            lastDeletedDialogue = nil
+        }
+    }
+    
+    func deleteDialogue(id: UUID) {
+        if let index = dialogues.firstIndex(where: { $0.id == id }) {
+            lastDeletedDialogue = (index, dialogues[index])
+            dialogues.remove(at: index)
+            updateScene()
         }
     }
 } 

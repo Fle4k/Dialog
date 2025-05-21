@@ -13,11 +13,20 @@ struct AutoExpandingTextView: UIViewRepresentable {
         textView.font = .preferredFont(forTextStyle: .body)
         textView.delegate = context.coordinator
         textView.backgroundColor = .clear
-        textView.textContainerInset = UIEdgeInsets(top: 8, left: 4, bottom: 8, right: 4)
         textView.returnKeyType = .send
         textView.text = text
-        textView.setContentHuggingPriority(.defaultHigh, for: .vertical)
+        
+        // Configure text container for proper wrapping
+        textView.textContainer.lineFragmentPadding = 0
+        textView.textContainerInset = UIEdgeInsets(top: 8, left: 4, bottom: 8, right: 4)
         textView.textContainer.widthTracksTextView = true
+        textView.layoutManager.allowsNonContiguousLayout = false
+        
+        // Set content hugging and compression resistance priorities
+        textView.setContentHuggingPriority(.defaultHigh, for: .vertical)
+        textView.setContentHuggingPriority(.defaultHigh, for: .horizontal)
+        textView.setContentCompressionResistancePriority(.defaultHigh, for: .horizontal)
+        
         context.coordinator.widthConstraint = textView.widthAnchor.constraint(equalToConstant: availableWidth)
         context.coordinator.widthConstraint?.isActive = true
         return textView
