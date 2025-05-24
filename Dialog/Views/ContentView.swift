@@ -56,7 +56,9 @@ struct PersistentTextField: UIViewRepresentable {
         let newHeight = min(max(size.height, minHeight), maxHeight)
         
         if uiView.frame.height != newHeight {
-            uiView.frame.size.height = newHeight
+            UIView.animate(withDuration: 0.25) {
+                uiView.frame.size.height = newHeight
+            }
         }
     }
     
@@ -169,6 +171,13 @@ struct DialogueInputArea: View {
             .padding(.bottom, 8)
         }
         .background(Color(.systemBackground))
+        .onAppear {
+            NotificationCenter.default.addObserver(forName: UIResponder.keyboardWillShowNotification, object: nil, queue: .main) { notification in
+                withAnimation(.easeOut(duration: 0.25)) {
+                    // Update layout state here
+                }
+            }
+        }
     }
 }
 
