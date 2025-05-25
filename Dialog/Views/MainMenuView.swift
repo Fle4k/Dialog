@@ -1,92 +1,167 @@
 import SwiftUI
 
+// MARK: - Main Menu View
 struct MainMenuView: View {
-    @StateObject private var viewModel = DialogueScenesViewModel()
-    @State private var showingNewSceneSheet = false
-    @State private var newSceneTitle = ""
-    @State private var navigationPath = NavigationPath()
-    @State private var renamingScene: DialogueScene? = nil
-    @State private var renameTitle: String = ""
+    @StateObject private var viewModel = MainMenuViewModel()
     
     var body: some View {
-        NavigationStack(path: $navigationPath) {
+        NavigationStack {
             VStack(spacing: 0) {
-                List {
-                    Section {
-                        ForEach(viewModel.scenes) { scene in
-                            NavigationLink(value: scene.id) {
-                                VStack(alignment: .leading) {
-                                    Text(scene.title)
-                                        .font(.headline)
-                                    Text("\(scene.dialogues.count) " + NSLocalizedString("Lines", comment: "Number of lines in a scene"))
-                                        .font(.caption)
-                                        .foregroundColor(.secondary)
+                // Sessions List
+                sessionsListView
+                
+                // Add Button at Bottom
+                addButtonView
+            }
+            .toolbar {
+                ToolbarItem(placement: .topBarTrailing) {
+                    Menu {
+                        ForEach(DialogueSortOption.allCases, id: \.self) { option in
+                            Button {
+                                viewModel.setSortOption(option)
+                            } label: {
+                                HStack {
+                                    Text(option.rawValue)
+                                    Image(systemName: option.systemImage)
+                                    if viewModel.sortOption == option {
+                                        Image(systemName: "checkmark")
+                                    }
                                 }
                             }
-                            .onLongPressGesture {
-                                renamingScene = scene
-                                renameTitle = scene.title
-                            }
                         }
-                        .onDelete { indexSet in
-                            for index in indexSet {
-                                viewModel.deleteScene(viewModel.scenes[index])
-                            }
-                        }
+                    } label: {
+                        Image(systemName: "list.bullet")
+                            .foregroundColor(.primary)
                     }
                 }
-                
-                Button(action: {
-                    // Use localized default title
-                    let defaultTitle = NSLocalizedString("untitled", comment: "Default scene title")
-                    let scene = DialogueScene(title: defaultTitle)
-                    viewModel.scenes.append(scene)
-                    viewModel.updateScene(scene)
-                    // Navigate to the new scene
-                    navigationPath.append(scene.id)
-                }) {
-                    Label("Add Dialogue Scene", systemImage: "plus.circle.fill")
-                        .frame(maxWidth: .infinity)
-                        .padding()
-                        .background(Color.accentColor)
-                        .foregroundColor(.white)
-                        .cornerRadius(10)
-                }
-                .padding(.horizontal)
-                .padding(.top)
-                .padding(.bottom, 100)
             }
-            .navigationTitle("Dialogue Scenes")
-            .navigationDestination(for: UUID.self) { sceneID in
-                if let scene = viewModel.scenes.first(where: { $0.id == sceneID }) {
-                    DialogueSceneView(
-                        scene: scene,
-                        onSceneUpdate: { updatedScene in
-                            viewModel.updateScene(updatedScene)
-                        }
-                    )
-                }
-            }
-            .alert("Rename Scene", isPresented: Binding<Bool>(
-                get: { renamingScene != nil },
-                set: { if !$0 { renamingScene = nil } }
-            ), actions: {
-                TextField("New title", text: $renameTitle)
-                Button("Cancel", role: .cancel) { renamingScene = nil }
-                Button("Save") {
-                    if let scene = renamingScene, !renameTitle.trimmingCharacters(in: .whitespaces).isEmpty {
-                        viewModel.renameScene(id: scene.id, newTitle: renameTitle)
-                    }
-                    renamingScene = nil
-                }
-            }, message: {
-                Text("Enter a new name for the scene.")
-            })
         }
+    }
+    
+    // MARK: - Add Button View
+    private var addButtonView: some View {
+        NavigationLink {
+            DialogueSceneView { dialogViewModel in
+                viewModel.saveSession(dialogViewModel)
+            }
+        } label: {
+            HStack {
+                Image(systemName: "plus.circle.fill")
+                    .font(.title2)
+                Text("Add New Dialogue")
+                    .font(.headline)
+                    .fontWeight(.semibold)
+            }
+            .foregroundColor(.white)
+            .frame(maxWidth: .infinity)
+            .frame(height: 50)
+            .background(Color.primary)
+            .cornerRadius(12)
+        }
+        .padding(.horizontal)
+        .padding(.bottom)
+        .background(Color(.systemBackground))
+    }
+    
+    // MARK: - Sessions List View
+    private var sessionsListView: some View {
+        Group {
+            if viewModel.dialogueSessions.isEmpty {
+                emptyStateView
+            } else {
+                sessionsList
+            }
+        }
+    }
+    
+    private var emptyStateView: some View {
+        VStack(spacing: 20) {
+            Spacer()
+            
+            Image(systemName: "bubble.left.and.bubble.right")
+                .font(.system(size: 60))
+                .foregroundColor(.secondary)
+            
+            VStack(spacing: 8) {
+                Text("No Dialogues Yet")
+                    .font(.title2)
+                    .fontWeight(.semibold)
+                
+                Text("Tap 'Add New Dialogue' to start your first conversation")
+                    .font(.body)
+                    .foregroundColor(.secondary)
+                    .multilineTextAlignment(.center)
+            }
+            
+            Spacer()
+        }
+        .padding()
+    }
+    
+    private var sessionsList: some View {
+        List {
+            ForEach(viewModel.dialogueSessions) { session in
+                NavigationLink {
+                    DialogueSceneView(existingSession: session) { dialogViewModel in
+                        viewModel.updateSession(session, with: dialogViewModel)
+                    }
+                } label: {
+                    SessionRowView(session: session)
+                }
+                .listRowInsets(EdgeInsets(top: 8, leading: 16, bottom: 8, trailing: 16))
+                .swipeActions(edge: .trailing, allowsFullSwipe: true) {
+                    Button("Delete", role: .destructive) {
+                        viewModel.deleteSession(session)
+                    }
+                }
+            }
+            .onDelete(perform: viewModel.deleteSession)
+        }
+        .listStyle(.plain)
     }
 }
 
-#Preview {
+// MARK: - Session Row View
+struct SessionRowView: View {
+    let session: DialogueSession
+    
+    private static let dateFormatter: DateFormatter = {
+        let formatter = DateFormatter()
+        formatter.dateStyle = .medium
+        formatter.timeStyle = .none
+        return formatter
+    }()
+    
+    var body: some View {
+        HStack(alignment: .center) {
+            VStack(alignment: .leading, spacing: 8) {
+                Text(session.title)
+                    .font(.headline)
+                    .fontWeight(.semibold)
+                    .lineLimit(2)
+                
+                Text(Self.dateFormatter.string(from: session.lastModified))
+                    .font(.caption)
+                    .foregroundColor(.secondary)
+            }
+            
+            Spacer()
+            
+            Text("\(session.messageCount) lines")
+                .font(.caption)
+                .fontWeight(.medium)
+                .foregroundColor(.secondary)
+        }
+        .padding(.vertical, 4)
+        .contentShape(Rectangle())
+    }
+}
+
+// MARK: - Previews
+#Preview("Main Menu - Empty") {
+    MainMenuView()
+}
+
+#Preview("Main Menu - With Sessions") {
     MainMenuView()
 } 
- 
