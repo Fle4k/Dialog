@@ -2,9 +2,21 @@ import Foundation
 
 // MARK: - Chat Models
 struct Message: Identifiable, Hashable {
-    let id = UUID()
+    let id: UUID
     let speaker: Speaker
     let text: String
+    
+    init(speaker: Speaker, text: String) {
+        self.id = UUID()
+        self.speaker = speaker
+        self.text = text
+    }
+    
+    init(id: UUID, speaker: Speaker, text: String) {
+        self.id = id
+        self.speaker = speaker
+        self.text = text
+    }
     
     var isSpeakerA: Bool {
         speaker == .a

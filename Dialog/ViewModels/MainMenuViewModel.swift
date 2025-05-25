@@ -4,6 +4,7 @@ import SwiftUI
 enum DialogueSortOption: String, CaseIterable {
     case dateAdded = "Date Added"
     case dateEdited = "Date Edited"
+    case alphabetical = "Alphabetical"
     
     var systemImage: String {
         switch self {
@@ -11,6 +12,8 @@ enum DialogueSortOption: String, CaseIterable {
             return "calendar.badge.plus"
         case .dateEdited:
             return "calendar.badge.clock"
+        case .alphabetical:
+            return "textformat.abc"
         }
     }
 }
@@ -45,6 +48,9 @@ final class MainMenuViewModel: ObservableObject {
         case .dateEdited:
             // Sort by last modified date, most recent first
             dialogueSessions = dialogueSessions.sorted { $0.lastModified > $1.lastModified }
+        case .alphabetical:
+            // Sort alphabetically by title (case-insensitive)
+            dialogueSessions = dialogueSessions.sorted { $0.title.localizedCaseInsensitiveCompare($1.title) == .orderedAscending }
         }
     }
     
@@ -80,6 +86,18 @@ final class MainMenuViewModel: ObservableObject {
         if updatedSession.hasContentChanges(comparedTo: session) {
             updatedSession.lastModified = Date()
         }
+        
+        dialogueSessions[index] = updatedSession
+        applySorting()
+        saveSessions()
+    }
+    
+    func renameSession(_ session: DialogueSession, to newTitle: String) {
+        guard let index = dialogueSessions.firstIndex(where: { $0.id == session.id }) else { return }
+        
+        var updatedSession = session
+        updatedSession.title = newTitle
+        updatedSession.lastModified = Date()
         
         dialogueSessions[index] = updatedSession
         applySorting()

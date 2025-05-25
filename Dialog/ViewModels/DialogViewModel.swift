@@ -9,14 +9,27 @@ final class DialogViewModel: ObservableObject {
     @Published var customSpeakerNames: [Speaker: String] = [:]
     @Published var flaggedMessageIds: Set<UUID> = []
     
+    // MARK: - Edit Mode Properties
+    @Published var isEditingMessage: Bool = false
+    @Published var editingMessageId: UUID? = nil
+    
     func addMessage() {
         let trimmedText = inputText.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !trimmedText.isEmpty else { return }
         
-        let message = Message(speaker: selectedSpeaker, text: trimmedText)
-        textlines.append(message)
-        selectedSpeaker.toggle()
+        if isEditingMessage, let editingId = editingMessageId {
+            // Update existing message
+            updateMessage(withId: editingId, newText: trimmedText)
+        } else {
+            // Add new message
+            let message = Message(speaker: selectedSpeaker, text: trimmedText)
+            textlines.append(message)
+            selectedSpeaker.toggle()
+        }
+        
+        // Reset input state
         inputText = ""
+        exitEditMode()
     }
     
     func handleNewlineInput() {
@@ -24,6 +37,27 @@ final class DialogViewModel: ObservableObject {
             inputText = inputText.replacingOccurrences(of: "\n", with: "")
             addMessage()
         }
+    }
+    
+    // MARK: - Edit Mode Methods
+    func startEditingMessage(_ message: Message) {
+        isEditingMessage = true
+        editingMessageId = message.id
+        inputText = message.text
+        selectedSpeaker = message.speaker
+    }
+    
+    func exitEditMode() {
+        isEditingMessage = false
+        editingMessageId = nil
+    }
+    
+    func updateMessage(withId id: UUID, newText: String) {
+        guard let index = textlines.firstIndex(where: { $0.id == id }) else { return }
+        
+        // Create new message with updated text but same ID and speaker
+        let updatedMessage = Message(id: id, speaker: textlines[index].speaker, text: newText)
+        textlines[index] = updatedMessage
     }
     
     func renameSpeaker(_ speaker: Speaker, to name: String) {

@@ -18,6 +18,20 @@ struct DialogueSceneView: View {
     var body: some View {
         VStack(spacing: 0) {
             textlinesView
+                .blur(radius: viewModel.isEditingMessage ? 8 : 0)
+                .animation(.easeInOut(duration: 0.3), value: viewModel.isEditingMessage)
+                .onTapGesture {
+                    if viewModel.isEditingMessage {
+                        cancelEditMode()
+                    } else {
+                        // Tap to show combo if hidden, or dismiss if shown
+                        if !showInputArea {
+                            showInputAreaWithFocus()
+                        } else {
+                            hideInputArea()
+                        }
+                    }
+                }
             
             if showInputArea {
                 inputAreaView
@@ -56,7 +70,7 @@ struct DialogueSceneView: View {
                 }
             }
         }
-        .navigationTitle(existingSession?.title ?? "New Dialogue")
+        .navigationTitle(existingSession?.title ?? "")
         .navigationBarTitleDisplayMode(.inline)
         .onAppear {
             // Load existing session data if provided
@@ -96,14 +110,6 @@ struct DialogueSceneView: View {
         }
         .listStyle(.plain)
         .contentMargins(.bottom, showInputArea ? 20 : 0)
-        .onTapGesture {
-            // Tap to show combo if hidden, or dismiss if shown
-            if !showInputArea {
-                showInputAreaWithFocus()
-            } else {
-                hideInputArea()
-            }
-        }
     }
     
 
@@ -132,6 +138,12 @@ struct DialogueSceneView: View {
                 }
                 .tint(.primary)
             }
+            .simultaneousGesture(
+                LongPressGesture(minimumDuration: 0.5)
+                    .onEnded { _ in
+                        startEditingMessage(message)
+                    }
+            )
             .id(message.id)
         }
     }
@@ -147,18 +159,30 @@ struct DialogueSceneView: View {
             SpeakerSelectorView(
                 selectedSpeaker: $viewModel.selectedSpeaker, 
                 viewModel: viewModel,
-                isInputFocused: $isInputFocused
-            )
-            .padding(.horizontal)
-            .padding(.top, 20)
-            
-            MessageInputView(
-                text: $viewModel.inputText,
                 isInputFocused: $isInputFocused,
-                onSubmit: viewModel.addMessage
+                isEditingMode: viewModel.isEditingMessage
             )
             .padding(.horizontal)
             .padding(.top, 12)
+            
+            HStack {
+                MessageInputView(
+                    text: $viewModel.inputText,
+                    isInputFocused: $isInputFocused,
+                    onSubmit: viewModel.addMessage,
+                    isEditing: viewModel.isEditingMessage
+                )
+                
+                if viewModel.isEditingMessage {
+                    Button("Cancel") {
+                        cancelEditMode()
+                    }
+                    .foregroundColor(.secondary)
+                    .padding(.leading, 8)
+                }
+            }
+            .padding(.horizontal)
+            .padding(.top, 8)
             .padding(.bottom)
         }
         .background(Color(.systemBackground))
@@ -179,6 +203,17 @@ struct DialogueSceneView: View {
     private func hideInputArea() {
         isInputFocused = false
         showInputArea = false
+    }
+    
+    private func startEditingMessage(_ message: Message) {
+        viewModel.startEditingMessage(message)
+        showInputAreaWithFocus()
+    }
+    
+    private func cancelEditMode() {
+        viewModel.exitEditMode()
+        viewModel.inputText = ""
+        hideInputArea()
     }
     
     private func scrollToBottom(proxy: ScrollViewProxy) {
@@ -244,6 +279,7 @@ struct SpeakerSelectorView: View {
     @Binding var selectedSpeaker: Speaker
     let viewModel: DialogViewModel
     @FocusState.Binding var isInputFocused: Bool
+    let isEditingMode: Bool
     @State private var showingRenameAlert = false
     @State private var speakerToRename: Speaker? = nil
     @State private var newSpeakerName = ""
@@ -254,26 +290,27 @@ struct SpeakerSelectorView: View {
                 Text(speaker.displayName(customNames: viewModel.customSpeakerNames))
                     .font(.headline)
                     .fontWeight(.bold)
-                    .foregroundColor(selectedSpeaker == speaker ? Color(.systemBackground) : .primary)
+                    .foregroundColor(selectedSpeaker == speaker ? .primary : Color(.systemGray4))
                     .frame(maxWidth: .infinity)
-                    .frame(height: 40)
-                    .background(
-                        RoundedRectangle(cornerRadius: 12)
-                            .fill(selectedSpeaker == speaker ? Color.primary : Color(.systemGray5))
-                    )
+                    .frame(height: 32)
                     .contentShape(Rectangle())
+                    .opacity(isEditingMode ? 0.5 : 1.0)
                     .simultaneousGesture(
                         TapGesture()
                             .onEnded { _ in
-                                selectedSpeaker = speaker
+                                if !isEditingMode {
+                                    selectedSpeaker = speaker
+                                }
                             }
                     )
                     .simultaneousGesture(
                         LongPressGesture(minimumDuration: 0.5)
                             .onEnded { _ in
-                                speakerToRename = speaker
-                                newSpeakerName = viewModel.customSpeakerNames[speaker] ?? ""
-                                showingRenameAlert = true
+                                if !isEditingMode {
+                                    speakerToRename = speaker
+                                    newSpeakerName = viewModel.customSpeakerNames[speaker] ?? ""
+                                    showingRenameAlert = true
+                                }
                             }
                     )
             }
@@ -297,9 +334,10 @@ struct MessageInputView: View {
     @Binding var text: String
     @FocusState.Binding var isInputFocused: Bool
     let onSubmit: () -> Void
+    let isEditing: Bool
     
     var body: some View {
-        TextField("", text: $text, axis: .vertical)
+        TextField(isEditing ? "Edit message..." : "Enter dialogue...", text: $text, axis: .vertical)
             .lineLimit(1...4)
             .focused($isInputFocused)
             .onSubmit {

@@ -77,17 +77,26 @@ struct DialogueSession: Identifiable, Codable {
 // MARK: - Message Codable Extension
 extension Message: Codable {
     enum CodingKeys: String, CodingKey {
-        case speaker, text
+        case id, speaker, text
     }
     
     init(from decoder: Decoder) throws {
         let container = try decoder.container(keyedBy: CodingKeys.self)
+        
+        // Handle backward compatibility - if no ID is present, generate one
+        if let id = try? container.decode(UUID.self, forKey: .id) {
+            self.id = id
+        } else {
+            self.id = UUID()
+        }
+        
         self.speaker = try container.decode(Speaker.self, forKey: .speaker)
         self.text = try container.decode(String.self, forKey: .text)
     }
     
     func encode(to encoder: Encoder) throws {
         var container = encoder.container(keyedBy: CodingKeys.self)
+        try container.encode(id, forKey: .id)
         try container.encode(speaker, forKey: .speaker)
         try container.encode(text, forKey: .text)
     }

@@ -28,6 +28,7 @@ struct MainMenuView: View {
                                     }
                                 }
                             }
+                            .disabled(viewModel.sortOption == option)
                         }
                     } label: {
                         Image(systemName: "list.bullet")
@@ -40,26 +41,26 @@ struct MainMenuView: View {
     
     // MARK: - Add Button View
     private var addButtonView: some View {
-        NavigationLink {
-            DialogueSceneView { dialogViewModel in
-                viewModel.saveSession(dialogViewModel)
-            }
-        } label: {
-            HStack {
-                Image(systemName: "plus.circle.fill")
-                    .font(.title2)
+        VStack(spacing: 0) {
+            Rectangle()
+                .fill(Color(.systemGray5))
+                .frame(height: 1)
+            
+            NavigationLink {
+                DialogueSceneView { dialogViewModel in
+                    viewModel.saveSession(dialogViewModel)
+                }
+            } label: {
                 Text("Add New Dialogue")
                     .font(.headline)
                     .fontWeight(.semibold)
+                    .foregroundColor(.primary)
+                    .frame(maxWidth: .infinity)
+                    .frame(height: 50)
             }
-            .foregroundColor(.white)
-            .frame(maxWidth: .infinity)
-            .frame(height: 50)
-            .background(Color.primary)
-            .cornerRadius(12)
+            .padding(.horizontal)
+            .padding(.vertical)
         }
-        .padding(.horizontal)
-        .padding(.bottom)
         .background(Color(.systemBackground))
     }
     
@@ -86,11 +87,11 @@ struct MainMenuView: View {
                 Text("No Dialogues Yet")
                     .font(.title2)
                     .fontWeight(.semibold)
-                
-                Text("Tap 'Add New Dialogue' to start your first conversation")
-                    .font(.body)
-                    .foregroundColor(.secondary)
-                    .multilineTextAlignment(.center)
+//                
+//                Text("Tap 'Add New Dialogue' to start your first scene")
+//                    .font(.body)
+//                    .foregroundColor(.secondary)
+//                    .multilineTextAlignment(.center)
             }
             
             Spacer()
@@ -106,7 +107,9 @@ struct MainMenuView: View {
                         viewModel.updateSession(session, with: dialogViewModel)
                     }
                 } label: {
-                    SessionRowView(session: session)
+                    SessionRowView(session: session) { newTitle in
+                        viewModel.renameSession(session, to: newTitle)
+                    }
                 }
                 .listRowInsets(EdgeInsets(top: 8, leading: 16, bottom: 8, trailing: 16))
                 .swipeActions(edge: .trailing, allowsFullSwipe: true) {
@@ -124,6 +127,9 @@ struct MainMenuView: View {
 // MARK: - Session Row View
 struct SessionRowView: View {
     let session: DialogueSession
+    let onRename: (String) -> Void
+    @State private var showingRenameAlert = false
+    @State private var newTitle = ""
     
     private static let dateFormatter: DateFormatter = {
         let formatter = DateFormatter()
@@ -154,6 +160,25 @@ struct SessionRowView: View {
         }
         .padding(.vertical, 4)
         .contentShape(Rectangle())
+        .simultaneousGesture(
+            LongPressGesture(minimumDuration: 0.5)
+                .onEnded { _ in
+                    newTitle = session.title
+                    showingRenameAlert = true
+                }
+        )
+        .alert("Rename Dialogue", isPresented: $showingRenameAlert) {
+            TextField("Dialogue name", text: $newTitle)
+            Button("Cancel", role: .cancel) { }
+            Button("Save") {
+                let trimmedTitle = newTitle.trimmingCharacters(in: .whitespacesAndNewlines)
+                if !trimmedTitle.isEmpty {
+                    onRename(trimmedTitle)
+                }
+            }
+        } message: {
+            Text("Enter a new name for this dialogue")
+        }
     }
 }
 
