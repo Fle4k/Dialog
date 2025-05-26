@@ -18,8 +18,6 @@ struct DialogueSceneView: View {
     var body: some View {
         VStack(spacing: 0) {
             textlinesView
-                .blur(radius: viewModel.isEditingMessage ? 8 : 0)
-                .animation(.easeInOut(duration: 0.3), value: viewModel.isEditingMessage)
                 .onTapGesture {
                     if viewModel.isEditingMessage {
                         cancelEditMode()
@@ -72,14 +70,15 @@ struct DialogueSceneView: View {
         }
         .navigationTitle(existingSession?.title ?? "")
         .navigationBarTitleDisplayMode(.inline)
+        .tint(.primary)
         .onAppear {
             // Load existing session data if provided
             if let session = existingSession {
                 viewModel.loadSession(session)
+            } else {
+                // Only show input area and focus for new dialogues
+                showInputAreaWithFocus()
             }
-            
-            // Show input area and focus when view appears (like starting a new conversation)
-            showInputAreaWithFocus()
         }
         .onDisappear {
             // Auto-save when navigating back
@@ -119,7 +118,8 @@ struct DialogueSceneView: View {
             MessageRowView(
                 message: message,
                 speakerName: viewModel.getSpeakerName(for: message.speaker),
-                isFlagged: viewModel.isMessageFlagged(message.id)
+                isFlagged: viewModel.isMessageFlagged(message.id),
+                isBeingEdited: viewModel.editingMessageId == message.id
             )
             .listRowBackground(Color.clear)
             .listRowSeparator(.hidden)
@@ -166,12 +166,13 @@ struct DialogueSceneView: View {
             .padding(.top, 12)
             
             HStack {
-                MessageInputView(
-                    text: $viewModel.inputText,
-                    isInputFocused: $isInputFocused,
-                    onSubmit: viewModel.addMessage,
-                    isEditing: viewModel.isEditingMessage
-                )
+                            MessageInputView(
+                text: $viewModel.inputText,
+                isInputFocused: $isInputFocused,
+                onSubmit: viewModel.addMessage,
+                isEditing: viewModel.isEditingMessage,
+                selectedSpeaker: viewModel.selectedSpeaker
+            )
                 
                 if viewModel.isEditingMessage {
                     Button("Cancel") {
@@ -213,6 +214,10 @@ struct DialogueSceneView: View {
     private func cancelEditMode() {
         viewModel.exitEditMode()
         viewModel.inputText = ""
+        // Restore proper speaker turn based on last message
+        if let lastMessage = viewModel.textlines.last {
+            viewModel.selectedSpeaker = lastMessage.speaker == .a ? .b : .a
+        }
         hideInputArea()
     }
     
@@ -230,6 +235,7 @@ struct MessageRowView: View {
     let message: Message
     let speakerName: String
     let isFlagged: Bool
+    let isBeingEdited: Bool
     
     var isSpeakerA: Bool {
         message.speaker == .a
@@ -249,6 +255,8 @@ struct MessageRowView: View {
         .background(isFlagged ? Color.primary : Color.clear)
         .foregroundColor(isFlagged ? Color(.systemBackground) : .primary)
         .cornerRadius(8)
+        .blur(radius: isBeingEdited ? 2 : 0)
+        .animation(.easeInOut(duration: 0.3), value: isBeingEdited)
     }
     
     private var speakerAView: some View {
@@ -326,7 +334,6 @@ struct SpeakerSelectorView: View {
         } message: {
             Text("Enter a custom name for this speaker")
         }
-        .tint(.primary)
     }
 }
 
@@ -335,6 +342,7 @@ struct MessageInputView: View {
     @FocusState.Binding var isInputFocused: Bool
     let onSubmit: () -> Void
     let isEditing: Bool
+    let selectedSpeaker: Speaker
     
     var body: some View {
         TextField(isEditing ? "Edit message..." : "Enter dialogue...", text: $text, axis: .vertical)
@@ -343,6 +351,7 @@ struct MessageInputView: View {
             .onSubmit {
                 onSubmit()
             }
+            .multilineTextAlignment(isEditing && selectedSpeaker == .b ? .trailing : .leading)
             .padding(.horizontal, 8)
             .padding(.vertical, 12)
             .frame(minHeight: 44)

@@ -37,6 +37,7 @@ struct MainMenuView: View {
                 }
             }
         }
+        .tint(.primary)
     }
     
     // MARK: - Add Button View

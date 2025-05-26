@@ -20,6 +20,10 @@ final class DialogViewModel: ObservableObject {
         if isEditingMessage, let editingId = editingMessageId {
             // Update existing message
             updateMessage(withId: editingId, newText: trimmedText)
+            // Restore proper speaker turn based on last message
+            if let lastMessage = textlines.last {
+                selectedSpeaker = lastMessage.speaker == .a ? .b : .a
+            }
         } else {
             // Add new message
             let message = Message(speaker: selectedSpeaker, text: trimmedText)
