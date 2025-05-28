@@ -67,37 +67,7 @@ struct MainMenuView: View {
     
     // MARK: - Sessions List View
     private var sessionsListView: some View {
-        Group {
-            if viewModel.dialogueSessions.isEmpty {
-                emptyStateView
-            } else {
-                sessionsList
-            }
-        }
-    }
-    
-    private var emptyStateView: some View {
-        VStack(spacing: 20) {
-            Spacer()
-            
-            Image(systemName: "bubble.left.and.bubble.right")
-                .font(.system(size: 60))
-                .foregroundColor(.secondary)
-            
-            VStack(spacing: 8) {
-                Text("No Dialogues Yet")
-                    .font(.title2)
-                    .fontWeight(.semibold)
-//                
-//                Text("Tap 'Add New Dialogue' to start your first scene")
-//                    .font(.body)
-//                    .foregroundColor(.secondary)
-//                    .multilineTextAlignment(.center)
-            }
-            
-            Spacer()
-        }
-        .padding()
+        sessionsList
     }
     
     private var sessionsList: some View {
