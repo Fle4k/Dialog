@@ -3,31 +3,29 @@ import SwiftUI
 // MARK: - Dialog View Model
 @MainActor
 final class DialogViewModel: ObservableObject {
-    @Published var textlines: [Message] = []
+    @Published var textlines: [SpeakerText] = []
     @Published var selectedSpeaker: Speaker = .a
     @Published var inputText: String = ""
     @Published var customSpeakerNames: [Speaker: String] = [:]
-    @Published var flaggedMessageIds: Set<UUID> = []
+    @Published var flaggedTextIds: Set<UUID> = []
     
     // MARK: - Edit Mode Properties
-    @Published var isEditingMessage: Bool = false
-    @Published var editingMessageId: UUID? = nil
+    @Published var isEditingText: Bool = false
+    @Published var editingTextId: UUID? = nil
     
-    func addMessage() {
+    func addText() {
         let trimmedText = inputText.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !trimmedText.isEmpty else { return }
         
-        if isEditingMessage, let editingId = editingMessageId {
-            // Update existing message
-            updateMessage(withId: editingId, newText: trimmedText)
-            // Restore proper speaker turn based on last message
-            if let lastMessage = textlines.last {
-                selectedSpeaker = lastMessage.speaker == .a ? .b : .a
-            }
+        if isEditingText, let editingId = editingTextId {
+            // Update existing text
+            updateText(withId: editingId, newText: trimmedText)
+            // Restore proper speaker turn based on last text
+            setNextSpeakerBasedOnLastText()
         } else {
-            // Add new message
-            let message = Message(speaker: selectedSpeaker, text: trimmedText)
-            textlines.append(message)
+            // Add new text
+            let speakerText = SpeakerText(speaker: selectedSpeaker, text: trimmedText)
+            textlines.append(speakerText)
             selectedSpeaker.toggle()
         }
         
@@ -39,29 +37,29 @@ final class DialogViewModel: ObservableObject {
     func handleNewlineInput() {
         if inputText.contains("\n") {
             inputText = inputText.replacingOccurrences(of: "\n", with: "")
-            addMessage()
+            addText()
         }
     }
     
     // MARK: - Edit Mode Methods
-    func startEditingMessage(_ message: Message) {
-        isEditingMessage = true
-        editingMessageId = message.id
-        inputText = message.text
-        selectedSpeaker = message.speaker
+    func startEditingText(_ speakerText: SpeakerText) {
+        isEditingText = true
+        editingTextId = speakerText.id
+        inputText = speakerText.text
+        selectedSpeaker = speakerText.speaker
     }
     
     func exitEditMode() {
-        isEditingMessage = false
-        editingMessageId = nil
+        isEditingText = false
+        editingTextId = nil
     }
     
-    func updateMessage(withId id: UUID, newText: String) {
+    func updateText(withId id: UUID, newText: String) {
         guard let index = textlines.firstIndex(where: { $0.id == id }) else { return }
         
-        // Create new message with updated text but same ID and speaker
-        let updatedMessage = Message(id: id, speaker: textlines[index].speaker, text: newText)
-        textlines[index] = updatedMessage
+        // Create new speakerText with updated text but same ID and speaker
+        let updatedText = SpeakerText(id: id, speaker: textlines[index].speaker, text: newText)
+        textlines[index] = updatedText
     }
     
     func renameSpeaker(_ speaker: Speaker, to name: String) {
@@ -69,29 +67,29 @@ final class DialogViewModel: ObservableObject {
         customSpeakerNames[speaker] = trimmedName.isEmpty ? nil : trimmedName
     }
     
-    func deleteMessage(withId id: UUID) {
+    func deleteText(withId id: UUID) {
         textlines.removeAll { $0.id == id }
-        flaggedMessageIds.remove(id)
+        flaggedTextIds.remove(id)
     }
     
-    func deleteMessage(at offsets: IndexSet) {
+    func deleteText(at offsets: IndexSet) {
         for offset in offsets {
-            let message = textlines[offset]
-            flaggedMessageIds.remove(message.id)
+            let speakerText = textlines[offset]
+            flaggedTextIds.remove(speakerText.id)
         }
         textlines.remove(atOffsets: offsets)
     }
     
-    func toggleFlag(for messageId: UUID) {
-        if flaggedMessageIds.contains(messageId) {
-            flaggedMessageIds.remove(messageId)
+    func toggleFlag(for textId: UUID) {
+        if flaggedTextIds.contains(textId) {
+            flaggedTextIds.remove(textId)
         } else {
-            flaggedMessageIds.insert(messageId)
+            flaggedTextIds.insert(textId)
         }
     }
     
-    func isMessageFlagged(_ messageId: UUID) -> Bool {
-        flaggedMessageIds.contains(messageId)
+    func isTextFlagged(_ textId: UUID) -> Bool {
+        flaggedTextIds.contains(textId)
     }
     
     func getSpeakerName(for speaker: Speaker) -> String {
@@ -102,26 +100,102 @@ final class DialogViewModel: ObservableObject {
     func loadSession(_ session: DialogueSession) {
         textlines = session.textlines
         customSpeakerNames = session.customSpeakerNames
-        flaggedMessageIds = session.flaggedMessageIds
+        flaggedTextIds = session.flaggedTextIds
         // Reset input state
         inputText = ""
+        setNextSpeakerBasedOnLastText()
+    }
+    
+    // MARK: - Speaker Management
+    func setNextSpeakerBasedOnLastText() {
+        if let lastText = textlines.last {
+            // Set the speaker to the opposite of the last text's speaker
+            selectedSpeaker = lastText.speaker == .a ? .b : .a
+        } else {
+            // If no texts exist, default to speaker A
         selectedSpeaker = .a
+        }
     }
     
     // MARK: - Export Methods
     func exportToText() -> String {
         var result = ""
-        for message in textlines {
-            let speakerName = message.speaker.displayName(customNames: customSpeakerNames)
-            result += "\(speakerName): \(message.text)\n\n"
+        for speakerText in textlines {
+            let speakerName = speakerText.speaker.displayName(customNames: customSpeakerNames)
+            result += "\(speakerName): \(speakerText.text)\n\n"
         }
         return result
     }
     
+    func exportToTextURL() -> URL {
+        let content = exportToText()
+        let filename = generateFilename(suffix: "txt")
+        let tempURL = FileManager.default.temporaryDirectory.appendingPathComponent(filename)
+        
+        do {
+            try content.write(to: tempURL, atomically: true, encoding: .utf8)
+        } catch {
+            print("Failed to write text file: \(error)")
+        }
+        
+        return tempURL
+    }
+    
     func exportToRTF() -> Data {
-        let text = exportToText()
-        let rtfString = "{\\rtf1\\ansi\\deff0 {\\fonttbl \\f0 Times New Roman;} \\f0\\fs24 \(text.replacingOccurrences(of: "\n", with: "\\par "))}"
-        return rtfString.data(using: .utf8) ?? Data()
+        var rtfContent = "{\\rtf1\\ansi\\deff0 {\\fonttbl \\f0 Courier New;} \\f0\\fs24"
+        
+        for speakerText in textlines {
+            let speakerName = speakerText.speaker.displayName(customNames: customSpeakerNames).uppercased()
+            
+            // Add centered speaker name in caps
+            rtfContent += "\\par\\par\\qc\\b \(speakerName)\\b0\\par"
+            
+            // Break long lines and add dialogue text (centered)
+            let wrappedText = wrapText(speakerText.text, maxLength: 35)
+            rtfContent += "\\qc \(wrappedText)\\par"
+        }
+        
+        rtfContent += "}"
+        return rtfContent.data(using: .utf8) ?? Data()
+    }
+    
+    private func wrapText(_ text: String, maxLength: Int) -> String {
+        let words = text.components(separatedBy: .whitespaces)
+        var lines: [String] = []
+        var currentLine = ""
+        
+        for word in words {
+            let testLine = currentLine.isEmpty ? word : "\(currentLine) \(word)"
+            
+            if testLine.count <= maxLength {
+                currentLine = testLine
+            } else {
+                if !currentLine.isEmpty {
+                    lines.append(currentLine)
+                }
+                currentLine = word
+            }
+        }
+        
+        if !currentLine.isEmpty {
+            lines.append(currentLine)
+        }
+        
+        return lines.joined(separator: "\\par\\qc ")
+    }
+    
+    func exportToRTFURL() -> URL {
+        let data = exportToRTF()
+        let filename = generateFilename(suffix: "rtf")
+        let tempURL = FileManager.default.temporaryDirectory.appendingPathComponent(filename)
+        
+        do {
+            try data.write(to: tempURL)
+        } catch {
+            print("Failed to write RTF file: \(error)")
+        }
+        
+        return tempURL
     }
     
     func exportToFDX() -> Data {
@@ -129,14 +203,14 @@ final class DialogViewModel: ObservableObject {
         <?xml version="1.0" encoding="UTF-8"?>
         <FinalDraft DocumentType="Script" Template="No" Version="1">
         <Content>
-        \(textlines.map { message in
-            let speakerName = message.speaker.displayName(customNames: customSpeakerNames)
+        \(textlines.map { speakerText in
+            let speakerName = speakerText.speaker.displayName(customNames: customSpeakerNames)
             return """
             <Paragraph Type="Character">
             <Text>\(speakerName)</Text>
             </Paragraph>
             <Paragraph Type="Dialogue">
-            <Text>\(message.text)</Text>
+            <Text>\(speakerText.text)</Text>
             </Paragraph>
             """
         }.joined(separator: "\n"))
@@ -144,5 +218,46 @@ final class DialogViewModel: ObservableObject {
         </FinalDraft>
         """
         return fdxContent.data(using: .utf8) ?? Data()
+    }
+    
+    func exportToFDXURL() -> URL {
+        let data = exportToFDX()
+        let filename = generateFilename(suffix: "fdx")
+        let tempURL = FileManager.default.temporaryDirectory.appendingPathComponent(filename)
+        
+        do {
+            try data.write(to: tempURL)
+        } catch {
+            print("Failed to write FDX file: \(error)")
+        }
+        
+        return tempURL
+    }
+    
+    private func generateFilename(suffix: String) -> String {
+        let title = generateTitle()
+        let dateFormatter = DateFormatter()
+        dateFormatter.dateFormat = "ddMMyyyy"
+        let dateString = dateFormatter.string(from: Date())
+        
+        return "\(title)_\(dateString).\(suffix)"
+    }
+    
+    private func generateTitle() -> String {
+        guard !textlines.isEmpty else { return "NewDialog" }
+        
+        let firstText = textlines[0].text
+        let words = firstText.components(separatedBy: .whitespacesAndNewlines)
+        let titleWords = Array(words.prefix(3))
+        
+        if titleWords.isEmpty {
+            return "NewDialog"
+        }
+        
+        // Clean title for filename (remove special characters)
+        let title = titleWords.joined(separator: " ")
+        let cleanTitle = title.components(separatedBy: CharacterSet.alphanumerics.inverted).joined(separator: "")
+        
+        return cleanTitle.isEmpty ? "NewDialog" : cleanTitle
     }
 } 

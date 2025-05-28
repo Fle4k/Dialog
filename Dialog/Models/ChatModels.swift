@@ -1,7 +1,7 @@
 import Foundation
 
-// MARK: - Chat Models
-struct Message: Identifiable, Hashable {
+// MARK: - Dialogue Models
+struct SpeakerText: Identifiable, Hashable {
     let id: UUID
     let speaker: Speaker
     let text: String

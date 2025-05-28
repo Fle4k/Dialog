@@ -117,6 +117,7 @@ struct MainMenuView: View {
                     Button("Delete", role: .destructive) {
                         viewModel.deleteSession(session)
                     }
+                    .tint(.red)
                 }
             }
             .onDelete(perform: viewModel.deleteSession)
@@ -154,7 +155,7 @@ struct SessionRowView: View {
             
             Spacer()
             
-            Text("\(session.messageCount) lines")
+            Text("\(session.lineCount) lines")
                 .font(.caption)
                 .fontWeight(.medium)
                 .foregroundColor(.secondary)

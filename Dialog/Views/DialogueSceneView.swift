@@ -5,13 +5,18 @@ struct DialogueSceneView: View {
     @StateObject private var viewModel = DialogViewModel()
     @FocusState private var isInputFocused: Bool
     @State private var showInputArea = false
+    @State private var currentTitle = ""
+    @State private var isFullscreenMode = false
     @Environment(\.dismiss) private var dismiss
+    @Environment(\.colorScheme) private var colorScheme
     
     let onSave: ((DialogViewModel) -> Void)?
     let existingSession: DialogueSession?
+    let toolbarTransition: Namespace.ID?
     
-    init(existingSession: DialogueSession? = nil, onSave: ((DialogViewModel) -> Void)? = nil) {
+    init(existingSession: DialogueSession? = nil, toolbarTransition: Namespace.ID? = nil, onSave: ((DialogViewModel) -> Void)? = nil) {
         self.existingSession = existingSession
+        self.toolbarTransition = toolbarTransition
         self.onSave = onSave
     }
     
@@ -19,8 +24,11 @@ struct DialogueSceneView: View {
         VStack(spacing: 0) {
             textlinesView
                 .onTapGesture {
-                    if viewModel.isEditingMessage {
+                    if viewModel.isEditingText {
                         cancelEditMode()
+                    } else if isFullscreenMode {
+                        // Exit fullscreen mode and show input area + navbar
+                        exitFullscreenMode()
                     } else {
                         // Tap to show combo if hidden, or dismiss if shown
                         if !showInputArea {
@@ -31,58 +39,77 @@ struct DialogueSceneView: View {
                     }
                 }
             
-            if showInputArea {
+            if showInputArea && !isFullscreenMode {
                 inputAreaView
                     .transition(.move(edge: .bottom).combined(with: .opacity))
             }
         }
         .background(Color(.systemBackground))
         .animation(.easeInOut(duration: 0.3), value: showInputArea)
-        .toolbarBackground(.visible, for: .navigationBar)
+        .animation(.easeInOut(duration: 0.3), value: isFullscreenMode)
+        .toolbarBackground(isFullscreenMode ? .hidden : .visible, for: .navigationBar)
+        .toolbar(isFullscreenMode ? .hidden : .visible, for: .navigationBar)
         .toolbar {
             ToolbarItem(placement: .topBarTrailing) {
                 Menu {
                     ShareLink(
-                        item: viewModel.exportToFDX(),
-                        preview: SharePreview("Dialog.fdx")
+                        item: viewModel.exportToFDXURL(),
+                        preview: SharePreview("Dialog.fdx", image: Image(systemName: "doc.text"))
                     ) {
                         Label("Export to Final Draft", systemImage: "doc.text")
                     }
                     
                     ShareLink(
-                        item: viewModel.exportToRTF(),
-                        preview: SharePreview("Dialog.rtf")
+                        item: viewModel.exportToRTFURL(),
+                        preview: SharePreview("Dialog.rtf", image: Image(systemName: "doc.richtext"))
                     ) {
                         Label("Export as RTF", systemImage: "doc.richtext")
                     }
                     
                     ShareLink(
-                        item: viewModel.exportToText(),
-                        preview: SharePreview("Dialog.txt")
+                        item: viewModel.exportToTextURL(),
+                        preview: SharePreview("Dialog.txt", image: Image(systemName: "doc.plaintext"))
                     ) {
                         Label("Export as Text", systemImage: "doc.plaintext")
                     }
                 } label: {
-                    Image(systemName: "square.and.arrow.up")
-                        .foregroundColor(.primary)
+                    Group {
+                        if let toolbarTransition = toolbarTransition {
+                            Image(systemName: "square.and.arrow.up")
+                                .foregroundColor(.primary)
+                                .matchedGeometryEffect(id: "toolbarIcon", in: toolbarTransition)
+                        } else {
+                            Image(systemName: "square.and.arrow.up")
+                                .foregroundColor(.primary)
+                        }
+                    }
                 }
             }
         }
-        .navigationTitle(existingSession?.title ?? "")
+        .navigationTitle(currentTitle)
         .navigationBarTitleDisplayMode(.inline)
-        .tint(.primary)
+        .statusBarHidden(isFullscreenMode)
         .onAppear {
             // Load existing session data if provided
             if let session = existingSession {
+                currentTitle = session.title
                 viewModel.loadSession(session)
+                
+                // Enter fullscreen mode if there are existing texts
+                if !session.textlines.isEmpty {
+                    enterFullscreenMode()
+                }
             } else {
+                currentTitle = ""
                 // Only show input area and focus for new dialogues
                 showInputAreaWithFocus()
             }
         }
         .onDisappear {
-            // Auto-save when navigating back
-            onSave?(viewModel)
+            // Auto-save when navigating back, but only if there are texts
+            if !viewModel.textlines.isEmpty {
+                onSave?(viewModel)
+            }
         }
     }
     
@@ -91,11 +118,40 @@ struct DialogueSceneView: View {
         ScrollViewReader { proxy in
             textlinesList
                 .onChange(of: viewModel.textlines.count) { _, _ in
-                    scrollToBottom(proxy: proxy)
+                    if !viewModel.isEditingText {
+                        scrollToLastText(proxy: proxy)
+                    }
                 }
                 .onChange(of: showInputArea) { _, newValue in
                     if newValue && !viewModel.textlines.isEmpty {
-                        scrollToBottom(proxy: proxy)
+                        if viewModel.isEditingText {
+                            scrollToEditingText(proxy: proxy)
+                        } else {
+                            // Delay scroll to allow input area animation to complete
+                            DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) {
+                                scrollToLastText(proxy: proxy)
+                            }
+                        }
+                    }
+                }
+                .onChange(of: viewModel.editingTextId) { _, editingId in
+                    if editingId != nil {
+                        scrollToEditingText(proxy: proxy)
+                    }
+                }
+                .onChange(of: isInputFocused) { _, focused in
+                    if focused && !viewModel.textlines.isEmpty {
+                        if viewModel.isEditingText {
+                            // When keyboard appears during editing, ensure editing text is visible
+                            DispatchQueue.main.asyncAfter(deadline: .now() + 0.4) {
+                                scrollToEditingText(proxy: proxy)
+                            }
+                        } else {
+                            // When keyboard appears for new text, ensure last text is visible
+                            DispatchQueue.main.asyncAfter(deadline: .now() + 0.4) {
+                                scrollToLastText(proxy: proxy)
+                            }
+                        }
                     }
                 }
         }
@@ -108,43 +164,42 @@ struct DialogueSceneView: View {
             }
         }
         .listStyle(.plain)
-        .contentMargins(.bottom, showInputArea ? 20 : 0)
+        .contentMargins(.bottom, showInputArea ? 60 : 0)
+        .contentMargins(.top, isFullscreenMode ? 0 : (viewModel.isEditingText ? 20 : 0))
     }
     
-
-    
     private var textlinesForEach: some View {
-        ForEach(viewModel.textlines) { message in
-            MessageRowView(
-                message: message,
-                speakerName: viewModel.getSpeakerName(for: message.speaker),
-                isFlagged: viewModel.isMessageFlagged(message.id),
-                isBeingEdited: viewModel.editingMessageId == message.id
+        ForEach(viewModel.textlines) { speakerText in
+            SpeakerTextRowView(
+                speakerText: speakerText,
+                speakerName: viewModel.getSpeakerName(for: speakerText.speaker),
+                isFlagged: viewModel.isTextFlagged(speakerText.id),
+                isBeingEdited: viewModel.editingTextId == speakerText.id
             )
             .listRowBackground(Color.clear)
             .listRowSeparator(.hidden)
             .listRowInsets(EdgeInsets(top: 8, leading: 16, bottom: 8, trailing: 16))
             .swipeActions(edge: .trailing, allowsFullSwipe: true) {
                 Button("Delete", role: .destructive) {
-                    viewModel.deleteMessage(withId: message.id)
+                    viewModel.deleteText(withId: speakerText.id)
                 }
+                .tint(.red)
             }
             .swipeActions(edge: .leading, allowsFullSwipe: true) {
                 Button {
-                    viewModel.toggleFlag(for: message.id)
+                    viewModel.toggleFlag(for: speakerText.id)
                 } label: {
                     Image(systemName: "star.fill")
-                        .foregroundColor(.white)
                 }
-                .tint(.primary)
+                .tint(.orange)
             }
             .simultaneousGesture(
                 LongPressGesture(minimumDuration: 0.5)
                     .onEnded { _ in
-                        startEditingMessage(message)
+                        startEditingText(speakerText)
                     }
             )
-            .id(message.id)
+            .id(speakerText.id)
         }
     }
     
@@ -160,21 +215,21 @@ struct DialogueSceneView: View {
                 selectedSpeaker: $viewModel.selectedSpeaker, 
                 viewModel: viewModel,
                 isInputFocused: $isInputFocused,
-                isEditingMode: viewModel.isEditingMessage
+                isEditingMode: viewModel.isEditingText
             )
             .padding(.horizontal)
             .padding(.top, 12)
             
             HStack {
-                            MessageInputView(
+                            TextInputView(
                 text: $viewModel.inputText,
                 isInputFocused: $isInputFocused,
-                onSubmit: viewModel.addMessage,
-                isEditing: viewModel.isEditingMessage,
+                onSubmit: viewModel.addText,
+                isEditing: viewModel.isEditingText,
                 selectedSpeaker: viewModel.selectedSpeaker
             )
                 
-                if viewModel.isEditingMessage {
+                if viewModel.isEditingText {
                     Button("Cancel") {
                         cancelEditMode()
                     }
@@ -194,6 +249,10 @@ struct DialogueSceneView: View {
     
     // MARK: - Helper Methods
     private func showInputAreaWithFocus() {
+        // Set the correct speaker based on the last text before showing input area
+        if !viewModel.isEditingText {
+            viewModel.setNextSpeakerBasedOnLastText()
+        }
         showInputArea = true
         // Delay focus to ensure the input area is visible
         DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
@@ -206,39 +265,62 @@ struct DialogueSceneView: View {
         showInputArea = false
     }
     
-    private func startEditingMessage(_ message: Message) {
-        viewModel.startEditingMessage(message)
-        showInputAreaWithFocus()
+    private func startEditingText(_ speakerText: SpeakerText) {
+        viewModel.startEditingText(speakerText)
+        if isFullscreenMode {
+            exitFullscreenMode()
+        } else {
+            showInputAreaWithFocus()
+        }
     }
     
     private func cancelEditMode() {
         viewModel.exitEditMode()
         viewModel.inputText = ""
-        // Restore proper speaker turn based on last message
-        if let lastMessage = viewModel.textlines.last {
-            viewModel.selectedSpeaker = lastMessage.speaker == .a ? .b : .a
-        }
+        // Restore proper speaker turn based on last text
+        viewModel.setNextSpeakerBasedOnLastText()
         hideInputArea()
     }
     
-    private func scrollToBottom(proxy: ScrollViewProxy) {
-        guard let lastMessage = viewModel.textlines.last else { return }
+    private func scrollToLastText(proxy: ScrollViewProxy) {
+        guard let lastText = viewModel.textlines.last else { return }
         
         withAnimation(.easeOut(duration: 0.5)) {
-            proxy.scrollTo(lastMessage.id, anchor: .bottom)
+            // Use center anchor to keep the last text visible above the keyboard
+            proxy.scrollTo(lastText.id, anchor: .center)
+        }
+    }
+    
+    private func exitFullscreenMode() {
+        isFullscreenMode = false
+        showInputAreaWithFocus()
+    }
+    
+    private func enterFullscreenMode() {
+        isFullscreenMode = true
+        showInputArea = false
+        isInputFocused = false
+    }
+    
+    private func scrollToEditingText(proxy: ScrollViewProxy) {
+        guard let editingId = viewModel.editingTextId else { return }
+        
+        withAnimation(.easeOut(duration: 0.5)) {
+            // Use center anchor to keep the editing text visible above the keyboard
+            proxy.scrollTo(editingId, anchor: .center)
         }
     }
 }
 
 // MARK: - Supporting Views
-struct MessageRowView: View {
-    let message: Message
+struct SpeakerTextRowView: View {
+    let speakerText: SpeakerText
     let speakerName: String
     let isFlagged: Bool
     let isBeingEdited: Bool
     
     var isSpeakerA: Bool {
-        message.speaker == .a
+        speakerText.speaker == .a
     }
     
     var body: some View {
@@ -253,10 +335,18 @@ struct MessageRowView: View {
         }
         .padding()
         .background(isFlagged ? Color.primary : Color.clear)
-        .foregroundColor(isFlagged ? Color(.systemBackground) : .primary)
+        .foregroundColor(textColor)
         .cornerRadius(8)
         .blur(radius: isBeingEdited ? 2 : 0)
         .animation(.easeInOut(duration: 0.3), value: isBeingEdited)
+    }
+    
+    private var textColor: Color {
+        if isFlagged {
+            return Color(.systemBackground)
+        } else {
+            return Color(.label) // Use .label instead of .primary for better contrast
+        }
     }
     
     private var speakerAView: some View {
@@ -265,7 +355,7 @@ struct MessageRowView: View {
                 .font(.headline)
                 .fontWeight(.bold)
             
-            Text(message.text)
+            Text(speakerText.text)
                 .font(.body)
         }
     }
@@ -276,7 +366,7 @@ struct MessageRowView: View {
                 .font(.headline)
                 .fontWeight(.bold)
             
-            Text(message.text)
+            Text(speakerText.text)
                 .font(.body)
                 .multilineTextAlignment(.trailing)
         }
@@ -337,7 +427,7 @@ struct SpeakerSelectorView: View {
     }
 }
 
-struct MessageInputView: View {
+struct TextInputView: View {
     @Binding var text: String
     @FocusState.Binding var isInputFocused: Bool
     let onSubmit: () -> Void
@@ -345,7 +435,7 @@ struct MessageInputView: View {
     let selectedSpeaker: Speaker
     
     var body: some View {
-        TextField(isEditing ? "Edit message..." : "Enter dialogue...", text: $text, axis: .vertical)
+        TextField(isEditing ? "Edit dialogue..." : "Enter dialogue...", text: $text, axis: .vertical)
             .lineLimit(1...4)
             .focused($isInputFocused)
             .onSubmit {

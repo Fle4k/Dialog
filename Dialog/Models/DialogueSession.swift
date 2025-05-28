@@ -6,9 +6,9 @@ struct DialogueSession: Identifiable, Codable {
     let createdAt: Date
     var lastModified: Date
     var title: String
-    var textlines: [Message]
+    var textlines: [SpeakerText]
     var customSpeakerNames: [Speaker: String]
-    var flaggedMessageIds: Set<UUID>
+    var flaggedTextIds: Set<UUID>
     
     @MainActor
     init(from viewModel: DialogViewModel) {
@@ -16,15 +16,15 @@ struct DialogueSession: Identifiable, Codable {
         self.lastModified = Date()
         self.textlines = viewModel.textlines
         self.customSpeakerNames = viewModel.customSpeakerNames
-        self.flaggedMessageIds = viewModel.flaggedMessageIds
+        self.flaggedTextIds = viewModel.flaggedTextIds
         self.title = Self.generateTitle(from: self.textlines)
     }
     
-    static func generateTitle(from textlines: [Message]) -> String {
+    static func generateTitle(from textlines: [SpeakerText]) -> String {
         guard !textlines.isEmpty else { return "New Dialogue" }
         
-        let firstMessage = textlines[0].text
-        let words = firstMessage.components(separatedBy: .whitespacesAndNewlines)
+        let firstText = textlines[0].text
+        let words = firstText.components(separatedBy: .whitespacesAndNewlines)
         let titleWords = Array(words.prefix(3))
         
         if titleWords.isEmpty {
@@ -34,7 +34,7 @@ struct DialogueSession: Identifiable, Codable {
         return titleWords.joined(separator: " ") + (words.count > 3 ? "..." : "")
     }
     
-    var messageCount: Int {
+    var lineCount: Int {
         textlines.count
     }
     
@@ -50,11 +50,11 @@ struct DialogueSession: Identifiable, Codable {
         }
         
         // Check if any textline content has changed
-        for (index, message) in textlines.enumerated() {
+        for (index, speakerText) in textlines.enumerated() {
             if index < other.textlines.count {
-                let otherMessage = other.textlines[index]
-                if message.text != otherMessage.text || 
-                   message.speaker != otherMessage.speaker {
+                let otherSpeakerText = other.textlines[index]
+                if speakerText.text != otherSpeakerText.text || 
+                   speakerText.speaker != otherSpeakerText.speaker {
                     return true
                 }
             }
@@ -66,7 +66,7 @@ struct DialogueSession: Identifiable, Codable {
         }
         
         // Check if flagged textlines have changed
-        if flaggedMessageIds != other.flaggedMessageIds {
+        if flaggedTextIds != other.flaggedTextIds {
             return true
         }
         
@@ -74,8 +74,8 @@ struct DialogueSession: Identifiable, Codable {
     }
 }
 
-// MARK: - Message Codable Extension
-extension Message: Codable {
+// MARK: - SpeakerText Codable Extension
+extension SpeakerText: Codable {
     enum CodingKeys: String, CodingKey {
         case id, speaker, text
     }
