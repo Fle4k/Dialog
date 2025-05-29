@@ -145,18 +145,48 @@ final class DialogViewModel: ObservableObject {
         var rtfContent = "{\\rtf1\\ansi\\deff0 {\\fonttbl \\f0 Courier New;} \\f0\\fs24"
         
         for speakerText in textlines {
-            let speakerName = speakerText.speaker.displayName(customNames: customSpeakerNames).uppercased()
+            let speakerName = escapeRTFText(speakerText.speaker.displayName(customNames: customSpeakerNames).uppercased())
             
             // Add centered speaker name in caps
             rtfContent += "\\par\\par\\qc\\b \(speakerName)\\b0\\par"
             
             // Break long lines and add dialogue text (centered)
-            let wrappedText = wrapText(speakerText.text, maxLength: 35)
+            let wrappedText = wrapText(escapeRTFText(speakerText.text), maxLength: 35)
             rtfContent += "\\qc \(wrappedText)\\par"
         }
         
         rtfContent += "}"
-        return rtfContent.data(using: .utf8) ?? Data()
+        return rtfContent.data(using: .windowsCP1252) ?? rtfContent.data(using: .utf8) ?? Data()
+    }
+    
+    private func escapeRTFText(_ text: String) -> String {
+        var escaped = text
+        
+        // Escape backslashes first
+        escaped = escaped.replacingOccurrences(of: "\\", with: "\\\\")
+        
+        // Escape curly braces
+        escaped = escaped.replacingOccurrences(of: "{", with: "\\{")
+        escaped = escaped.replacingOccurrences(of: "}", with: "\\}")
+        
+        // German special characters (Windows-1252 codes)
+        escaped = escaped.replacingOccurrences(of: "Ä", with: "\\'c4")
+        escaped = escaped.replacingOccurrences(of: "ä", with: "\\'e4")
+        escaped = escaped.replacingOccurrences(of: "Ö", with: "\\'d6")
+        escaped = escaped.replacingOccurrences(of: "ö", with: "\\'f6")
+        escaped = escaped.replacingOccurrences(of: "Ü", with: "\\'dc")
+        escaped = escaped.replacingOccurrences(of: "ü", with: "\\'fc")
+        escaped = escaped.replacingOccurrences(of: "ß", with: "\\'df")
+        
+        // Other common European characters
+        escaped = escaped.replacingOccurrences(of: "é", with: "\\'e9")
+        escaped = escaped.replacingOccurrences(of: "è", with: "\\'e8")
+        escaped = escaped.replacingOccurrences(of: "à", with: "\\'e0")
+        escaped = escaped.replacingOccurrences(of: "á", with: "\\'e1")
+        escaped = escaped.replacingOccurrences(of: "ñ", with: "\\'f1")
+        escaped = escaped.replacingOccurrences(of: "ç", with: "\\'e7")
+        
+        return escaped
     }
     
     private func wrapText(_ text: String, maxLength: Int) -> String {

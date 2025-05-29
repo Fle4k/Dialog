@@ -189,7 +189,7 @@ struct DialogueSceneView: View {
                 Button {
                     viewModel.toggleFlag(for: speakerText.id)
                 } label: {
-                    Image(systemName: "star.fill")
+                    Image(systemName: "flag.fill")
                 }
                 .tint(.orange)
             }
