@@ -353,10 +353,11 @@ struct SpeakerTextRowView: View {
         VStack(alignment: .leading, spacing: 4) {
             Text(speakerName)
                 .font(.headline)
-                .fontWeight(.bold)
+                .fontWeight(.black)
             
             Text(speakerText.text)
                 .font(.body)
+                .fontWeight(.light)
         }
     }
     
@@ -364,10 +365,11 @@ struct SpeakerTextRowView: View {
         VStack(alignment: .trailing, spacing: 4) {
             Text(speakerName)
                 .font(.headline)
-                .fontWeight(.bold)
+                .fontWeight(.black)
             
             Text(speakerText.text)
                 .font(.body)
+                .fontWeight(.light)
                 .multilineTextAlignment(.trailing)
         }
     }

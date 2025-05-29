@@ -67,7 +67,33 @@ struct MainMenuView: View {
     
     // MARK: - Sessions List View
     private var sessionsListView: some View {
-        sessionsList
+        Group {
+            if viewModel.dialogueSessions.isEmpty {
+                emptyStateView
+            } else {
+                sessionsList
+            }
+        }
+    }
+    
+    // MARK: - Empty State View
+    private var emptyStateView: some View {
+        VStack(spacing: 24) {
+            Spacer()
+            
+            // Talk balloon icon
+            Image(systemName: "bubble.left.and.bubble.right")
+                .font(.system(size: 40))
+                .foregroundStyle(.tertiary)
+            
+            Text("No one said a word.")
+                .font(.title2)
+                .fontWeight(.regular)
+                .foregroundStyle(.tertiary)
+            
+            Spacer()
+        }
+        .frame(maxWidth: .infinity, maxHeight: .infinity)
     }
     
     private var sessionsList: some View {
