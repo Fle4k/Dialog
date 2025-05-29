@@ -406,11 +406,9 @@ struct SpeakerSelectorView: View {
                     .simultaneousGesture(
                         LongPressGesture(minimumDuration: 0.5)
                             .onEnded { _ in
-                                if !isEditingMode {
-                                    speakerToRename = speaker
-                                    newSpeakerName = viewModel.customSpeakerNames[speaker] ?? ""
-                                    showingRenameAlert = true
-                                }
+                                speakerToRename = speaker
+                                newSpeakerName = viewModel.customSpeakerNames[speaker] ?? ""
+                                showingRenameAlert = true
                             }
                     )
             }
