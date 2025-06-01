@@ -3,6 +3,7 @@ import SwiftUI
 // MARK: - Dialog View Model
 @MainActor
 final class DialogViewModel: ObservableObject {
+    // MARK: - Data Properties
     @Published var textlines: [SpeakerText] = []
     @Published var selectedSpeaker: Speaker = .a
     @Published var inputText: String = ""
@@ -13,25 +14,109 @@ final class DialogViewModel: ObservableObject {
     @Published var isEditingText: Bool = false
     @Published var editingTextId: UUID? = nil
     
+    // MARK: - UI State Properties (moved from View)
+    @Published var showInputArea: Bool = false
+    @Published var isFullscreenMode: Bool = false
+    @Published var shouldFocusInput: Bool = false
+    @Published var currentTitle: String = ""
+    
+    // MARK: - UI State Management
+    func initializeForNewSession() {
+        currentTitle = ""
+        // Start in writing mode for immediate dialogue writing
+        isFullscreenMode = false
+        showInputAreaWithFocus()
+    }
+    
+    func initializeForExistingSession(_ session: DialogueSession) {
+        currentTitle = session.title
+        loadSession(session)
+        
+        if !session.textlines.isEmpty {
+            enterFullscreenMode()
+        }
+    }
+    
+    func showInputAreaWithFocus() {
+        if !isEditingText {
+            setNextSpeakerBasedOnLastText()
+        }
+        showInputArea = true
+        // Trigger focus after a brief delay
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
+            self.shouldFocusInput = true
+        }
+    }
+    
+    func hideInputArea() {
+        shouldFocusInput = false
+        showInputArea = false
+    }
+    
+    func enterFullscreenMode() {
+        isFullscreenMode = true
+        showInputArea = false
+        shouldFocusInput = false
+    }
+    
+    func exitFullscreenMode() {
+        isFullscreenMode = false
+        showInputAreaWithFocus()
+    }
+    
+    func handleViewTap() {
+        if isEditingText {
+            // If editing, cancel edit mode but stay in writing mode
+            cancelEditMode()
+        } else if isFullscreenMode {
+            // Transition from fullscreen to writing mode
+            exitFullscreenMode()
+        } else {
+            // Transition from writing mode to fullscreen mode
+            enterFullscreenMode()
+        }
+    }
+    
+    func startEditingText(_ speakerText: SpeakerText) {
+        isEditingText = true
+        editingTextId = speakerText.id
+        inputText = speakerText.text
+        selectedSpeaker = speakerText.speaker
+        
+        if isFullscreenMode {
+            exitFullscreenMode()
+        } else {
+            showInputAreaWithFocus()
+        }
+    }
+    
+    func cancelEditMode() {
+        exitEditMode()
+        inputText = ""
+        setNextSpeakerBasedOnLastText()
+        // Don't hide input area - stay in writing mode
+        showInputAreaWithFocus()
+    }
+    
+    // MARK: - Business Logic Methods
     func addText() {
         let trimmedText = inputText.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !trimmedText.isEmpty else { return }
         
         if isEditingText, let editingId = editingTextId {
-            // Update existing text
             updateText(withId: editingId, newText: trimmedText)
-            // Restore proper speaker turn based on last text
             setNextSpeakerBasedOnLastText()
         } else {
-            // Add new text
             let speakerText = SpeakerText(speaker: selectedSpeaker, text: trimmedText)
             textlines.append(speakerText)
             selectedSpeaker.toggle()
         }
         
-        // Reset input state
         inputText = ""
         exitEditMode()
+        
+        // Stay in writing mode after adding text for continuous dialogue writing
+        showInputAreaWithFocus()
     }
     
     func handleNewlineInput() {
@@ -42,13 +127,6 @@ final class DialogViewModel: ObservableObject {
     }
     
     // MARK: - Edit Mode Methods
-    func startEditingText(_ speakerText: SpeakerText) {
-        isEditingText = true
-        editingTextId = speakerText.id
-        inputText = speakerText.text
-        selectedSpeaker = speakerText.speaker
-    }
-    
     func exitEditMode() {
         isEditingText = false
         editingTextId = nil

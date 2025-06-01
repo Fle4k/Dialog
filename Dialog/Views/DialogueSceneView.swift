@@ -1,12 +1,68 @@
 import SwiftUI
 
+// MARK: - Scroll Coordinator
+@MainActor
+class ScrollCoordinator: ObservableObject {
+    func scrollToLastText(proxy: ScrollViewProxy, textlines: [SpeakerText]) {
+        guard let lastText = textlines.last else { return }
+        
+        withAnimation(.easeOut(duration: 0.5)) {
+            proxy.scrollTo(lastText.id, anchor: .center)
+        }
+    }
+    
+    func scrollToEditingText(proxy: ScrollViewProxy, editingId: UUID?) {
+        guard let editingId = editingId else { return }
+        
+        withAnimation(.easeOut(duration: 0.5)) {
+            proxy.scrollTo(editingId, anchor: .center)
+        }
+    }
+    
+    func handleTextCountChange(proxy: ScrollViewProxy, viewModel: DialogViewModel) {
+        if !viewModel.isEditingText {
+            scrollToLastText(proxy: proxy, textlines: viewModel.textlines)
+        }
+    }
+    
+    func handleInputAreaChange(proxy: ScrollViewProxy, viewModel: DialogViewModel, showInputArea: Bool) {
+        if showInputArea && !viewModel.textlines.isEmpty {
+            if viewModel.isEditingText {
+                scrollToEditingText(proxy: proxy, editingId: viewModel.editingTextId)
+            } else {
+                DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) {
+                    self.scrollToLastText(proxy: proxy, textlines: viewModel.textlines)
+                }
+            }
+        }
+    }
+    
+    func handleEditingChange(proxy: ScrollViewProxy, editingId: UUID?) {
+        if editingId != nil {
+            scrollToEditingText(proxy: proxy, editingId: editingId)
+        }
+    }
+    
+    func handleFocusChange(proxy: ScrollViewProxy, viewModel: DialogViewModel, focused: Bool) {
+        if focused && !viewModel.textlines.isEmpty {
+            if viewModel.isEditingText {
+                DispatchQueue.main.asyncAfter(deadline: .now() + 0.4) {
+                    self.scrollToEditingText(proxy: proxy, editingId: viewModel.editingTextId)
+                }
+            } else {
+                DispatchQueue.main.asyncAfter(deadline: .now() + 0.4) {
+                    self.scrollToLastText(proxy: proxy, textlines: viewModel.textlines)
+                }
+            }
+        }
+    }
+}
+
 // MARK: - Dialogue Scene View
 struct DialogueSceneView: View {
     @StateObject private var viewModel = DialogViewModel()
+    @StateObject private var scrollCoordinator = ScrollCoordinator()
     @FocusState private var isInputFocused: Bool
-    @State private var showInputArea = false
-    @State private var currentTitle = ""
-    @State private var isFullscreenMode = false
     @Environment(\.dismiss) private var dismiss
     @Environment(\.colorScheme) private var colorScheme
     
@@ -24,31 +80,19 @@ struct DialogueSceneView: View {
         VStack(spacing: 0) {
             textlinesView
                 .onTapGesture {
-                    if viewModel.isEditingText {
-                        cancelEditMode()
-                    } else if isFullscreenMode {
-                        // Exit fullscreen mode and show input area + navbar
-                        exitFullscreenMode()
-                    } else {
-                        // Tap to show combo if hidden, or dismiss if shown
-                        if !showInputArea {
-                            showInputAreaWithFocus()
-                        } else {
-                            hideInputArea()
-                        }
-                    }
+                    viewModel.handleViewTap()
                 }
             
-            if showInputArea && !isFullscreenMode {
+            if viewModel.showInputArea && !viewModel.isFullscreenMode {
                 inputAreaView
                     .transition(.move(edge: .bottom).combined(with: .opacity))
             }
         }
         .background(Color(.systemBackground))
-        .animation(.easeInOut(duration: 0.3), value: showInputArea)
-        .animation(.easeInOut(duration: 0.3), value: isFullscreenMode)
-        .toolbarBackground(isFullscreenMode ? .hidden : .visible, for: .navigationBar)
-        .toolbar(isFullscreenMode ? .hidden : .visible, for: .navigationBar)
+        .animation(.easeInOut(duration: 0.3), value: viewModel.showInputArea)
+        .animation(.easeInOut(duration: 0.3), value: viewModel.isFullscreenMode)
+        .toolbarBackground(viewModel.isFullscreenMode ? .hidden : .visible, for: .navigationBar)
+        .toolbar(viewModel.isFullscreenMode ? .hidden : .visible, for: .navigationBar)
         .toolbar {
             ToolbarItem(placement: .topBarTrailing) {
                 Menu {
@@ -86,30 +130,23 @@ struct DialogueSceneView: View {
                 }
             }
         }
-        .navigationTitle(currentTitle)
+        .navigationTitle(viewModel.currentTitle)
         .navigationBarTitleDisplayMode(.inline)
-        .statusBarHidden(isFullscreenMode)
+        .statusBarHidden(viewModel.isFullscreenMode)
         .onAppear {
-            // Load existing session data if provided
             if let session = existingSession {
-                currentTitle = session.title
-                viewModel.loadSession(session)
-                
-                // Enter fullscreen mode if there are existing texts
-                if !session.textlines.isEmpty {
-                    enterFullscreenMode()
-                }
+                viewModel.initializeForExistingSession(session)
             } else {
-                currentTitle = ""
-                // Only show input area and focus for new dialogues
-                showInputAreaWithFocus()
+                viewModel.initializeForNewSession()
             }
         }
         .onDisappear {
-            // Auto-save when navigating back, but only if there are texts
             if !viewModel.textlines.isEmpty {
                 onSave?(viewModel)
             }
+        }
+        .onChange(of: viewModel.shouldFocusInput) { _, shouldFocus in
+            isInputFocused = shouldFocus
         }
     }
     
@@ -118,41 +155,16 @@ struct DialogueSceneView: View {
         ScrollViewReader { proxy in
             textlinesList
                 .onChange(of: viewModel.textlines.count) { _, _ in
-                    if !viewModel.isEditingText {
-                        scrollToLastText(proxy: proxy)
-                    }
+                    scrollCoordinator.handleTextCountChange(proxy: proxy, viewModel: viewModel)
                 }
-                .onChange(of: showInputArea) { _, newValue in
-                    if newValue && !viewModel.textlines.isEmpty {
-                        if viewModel.isEditingText {
-                            scrollToEditingText(proxy: proxy)
-                        } else {
-                            // Delay scroll to allow input area animation to complete
-                            DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) {
-                                scrollToLastText(proxy: proxy)
-                            }
-                        }
-                    }
+                .onChange(of: viewModel.showInputArea) { _, newValue in
+                    scrollCoordinator.handleInputAreaChange(proxy: proxy, viewModel: viewModel, showInputArea: newValue)
                 }
                 .onChange(of: viewModel.editingTextId) { _, editingId in
-                    if editingId != nil {
-                        scrollToEditingText(proxy: proxy)
-                    }
+                    scrollCoordinator.handleEditingChange(proxy: proxy, editingId: editingId)
                 }
                 .onChange(of: isInputFocused) { _, focused in
-                    if focused && !viewModel.textlines.isEmpty {
-                        if viewModel.isEditingText {
-                            // When keyboard appears during editing, ensure editing text is visible
-                            DispatchQueue.main.asyncAfter(deadline: .now() + 0.4) {
-                                scrollToEditingText(proxy: proxy)
-                            }
-                        } else {
-                            // When keyboard appears for new text, ensure last text is visible
-                            DispatchQueue.main.asyncAfter(deadline: .now() + 0.4) {
-                                scrollToLastText(proxy: proxy)
-                            }
-                        }
-                    }
+                    scrollCoordinator.handleFocusChange(proxy: proxy, viewModel: viewModel, focused: focused)
                 }
         }
     }
@@ -164,8 +176,8 @@ struct DialogueSceneView: View {
             }
         }
         .listStyle(.plain)
-        .contentMargins(.bottom, showInputArea ? 60 : 0)
-        .contentMargins(.top, isFullscreenMode ? 0 : (viewModel.isEditingText ? 20 : 0))
+        .contentMargins(.bottom, viewModel.showInputArea ? 60 : 0)
+        .contentMargins(.top, viewModel.isFullscreenMode ? 0 : (viewModel.isEditingText ? 20 : 0))
     }
     
     private var textlinesForEach: some View {
@@ -206,10 +218,8 @@ struct DialogueSceneView: View {
     // MARK: - Input Area View
     private var inputAreaView: some View {
         VStack(spacing: 0) {
-            Rectangle()
-                .fill(Color(.systemGray5))
+            Color(.label)
                 .frame(height: 1)
-                .padding(.horizontal)
             
             SpeakerSelectorView(
                 selectedSpeaker: $viewModel.selectedSpeaker, 
@@ -248,67 +258,12 @@ struct DialogueSceneView: View {
     }
     
     // MARK: - Helper Methods
-    private func showInputAreaWithFocus() {
-        // Set the correct speaker based on the last text before showing input area
-        if !viewModel.isEditingText {
-            viewModel.setNextSpeakerBasedOnLastText()
-        }
-        showInputArea = true
-        // Delay focus to ensure the input area is visible
-        DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
-            isInputFocused = true
-        }
-    }
-    
-    private func hideInputArea() {
-        isInputFocused = false
-        showInputArea = false
-    }
-    
     private func startEditingText(_ speakerText: SpeakerText) {
         viewModel.startEditingText(speakerText)
-        if isFullscreenMode {
-            exitFullscreenMode()
-        } else {
-            showInputAreaWithFocus()
-        }
     }
     
     private func cancelEditMode() {
-        viewModel.exitEditMode()
-        viewModel.inputText = ""
-        // Restore proper speaker turn based on last text
-        viewModel.setNextSpeakerBasedOnLastText()
-        hideInputArea()
-    }
-    
-    private func scrollToLastText(proxy: ScrollViewProxy) {
-        guard let lastText = viewModel.textlines.last else { return }
-        
-        withAnimation(.easeOut(duration: 0.5)) {
-            // Use center anchor to keep the last text visible above the keyboard
-            proxy.scrollTo(lastText.id, anchor: .center)
-        }
-    }
-    
-    private func exitFullscreenMode() {
-        isFullscreenMode = false
-        showInputAreaWithFocus()
-    }
-    
-    private func enterFullscreenMode() {
-        isFullscreenMode = true
-        showInputArea = false
-        isInputFocused = false
-    }
-    
-    private func scrollToEditingText(proxy: ScrollViewProxy) {
-        guard let editingId = viewModel.editingTextId else { return }
-        
-        withAnimation(.easeOut(duration: 0.5)) {
-            // Use center anchor to keep the editing text visible above the keyboard
-            proxy.scrollTo(editingId, anchor: .center)
-        }
+        viewModel.cancelEditMode()
     }
 }
 

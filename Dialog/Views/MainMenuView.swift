@@ -43,8 +43,7 @@ struct MainMenuView: View {
     // MARK: - Add Button View
     private var addButtonView: some View {
         VStack(spacing: 0) {
-            Rectangle()
-                .fill(Color(.systemGray5))
+            Color(.label)
                 .frame(height: 1)
             
             NavigationLink {
