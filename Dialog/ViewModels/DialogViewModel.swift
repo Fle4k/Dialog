@@ -13,6 +13,7 @@ final class DialogViewModel: ObservableObject {
     // MARK: - Edit Mode Properties
     @Published var isEditingText: Bool = false
     @Published var editingTextId: UUID? = nil
+    @Published var editingOriginalSpeaker: Speaker? = nil
     
     // MARK: - UI State Properties (moved from View)
     @Published var showInputArea: Bool = false
@@ -82,6 +83,7 @@ final class DialogViewModel: ObservableObject {
         editingTextId = speakerText.id
         inputText = speakerText.text
         selectedSpeaker = speakerText.speaker
+        editingOriginalSpeaker = speakerText.speaker
         
         if isFullscreenMode {
             exitFullscreenMode()
@@ -98,13 +100,21 @@ final class DialogViewModel: ObservableObject {
         showInputAreaWithFocus()
     }
     
+    func setTemporarySpeaker(_ speaker: Speaker) {
+        // Only change the selectedSpeaker during editing, don't modify the actual text
+        if isEditingText {
+            selectedSpeaker = speaker
+        }
+    }
+    
     // MARK: - Business Logic Methods
     func addText() {
         let trimmedText = inputText.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !trimmedText.isEmpty else { return }
         
         if isEditingText, let editingId = editingTextId {
-            updateText(withId: editingId, newText: trimmedText)
+            // Apply both text and speaker changes when saving the edit
+            updateText(withId: editingId, newText: trimmedText, newSpeaker: selectedSpeaker)
             setNextSpeakerBasedOnLastText()
         } else {
             let speakerText = SpeakerText(speaker: selectedSpeaker, text: trimmedText)
@@ -130,14 +140,26 @@ final class DialogViewModel: ObservableObject {
     func exitEditMode() {
         isEditingText = false
         editingTextId = nil
+        editingOriginalSpeaker = nil
     }
     
-    func updateText(withId id: UUID, newText: String) {
+    func updateText(withId id: UUID, newText: String, newSpeaker: Speaker) {
         guard let index = textlines.firstIndex(where: { $0.id == id }) else { return }
         
         // Create new speakerText with updated text but same ID and speaker
-        let updatedText = SpeakerText(id: id, speaker: textlines[index].speaker, text: newText)
+        let updatedText = SpeakerText(id: id, speaker: newSpeaker, text: newText)
         textlines[index] = updatedText
+    }
+    
+    func changeSpeaker(withId id: UUID, to newSpeaker: Speaker) {
+        guard let index = textlines.firstIndex(where: { $0.id == id }) else { return }
+        
+        // Create new speakerText with same ID and text but different speaker
+        let updatedText = SpeakerText(id: id, speaker: newSpeaker, text: textlines[index].text)
+        textlines[index] = updatedText
+        
+        // Update the selected speaker to match the change
+        selectedSpeaker = newSpeaker
     }
     
     func renameSpeaker(_ speaker: Speaker, to name: String) {

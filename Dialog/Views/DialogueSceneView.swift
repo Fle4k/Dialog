@@ -79,9 +79,6 @@ struct DialogueSceneView: View {
     var body: some View {
         VStack(spacing: 0) {
             textlinesView
-                .onTapGesture {
-                    viewModel.handleViewTap()
-                }
             
             if viewModel.showInputArea && !viewModel.isFullscreenMode {
                 inputAreaView
@@ -178,6 +175,9 @@ struct DialogueSceneView: View {
         .listStyle(.plain)
         .contentMargins(.bottom, viewModel.showInputArea ? 60 : 0)
         .contentMargins(.top, viewModel.isFullscreenMode ? 0 : (viewModel.isEditingText ? 20 : 0))
+        .onTapGesture {
+            viewModel.handleViewTap()
+        }
     }
     
     private var textlinesForEach: some View {
@@ -349,15 +349,16 @@ struct SpeakerSelectorView: View {
                     .frame(maxWidth: .infinity)
                     .frame(height: 32)
                     .contentShape(Rectangle())
-                    .opacity(isEditingMode ? 0.5 : 1.0)
-                    .simultaneousGesture(
-                        TapGesture()
-                            .onEnded { _ in
-                                if !isEditingMode {
-                                    selectedSpeaker = speaker
-                                }
-                            }
-                    )
+                    .opacity(isEditingMode ? (selectedSpeaker == speaker ? 1.0 : 0.7) : 1.0)
+                    .onTapGesture {
+                        if isEditingMode {
+                            // In edit mode, temporarily change the selected speaker
+                            viewModel.setTemporarySpeaker(speaker)
+                        } else {
+                            // In normal mode, just select the speaker for new text
+                            selectedSpeaker = speaker
+                        }
+                    }
                     .simultaneousGesture(
                         LongPressGesture(minimumDuration: 0.5)
                             .onEnded { _ in
