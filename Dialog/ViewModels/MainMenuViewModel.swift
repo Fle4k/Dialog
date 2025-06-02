@@ -27,10 +27,13 @@ final class MainMenuViewModel: ObservableObject {
     private let userDefaults = UserDefaults.standard
     private let sessionsKey = "DialogueSessions"
     private let sortOptionKey = "DialogueSortOption"
+    private let dataVersionKey = "DataFormatVersion"
+    private let currentDataVersion = 1
     
     init() {
         loadSortOption()
         loadSessions()
+        setDataVersion()
     }
     
     // MARK: - Sorting
@@ -129,6 +132,9 @@ final class MainMenuViewModel: ObservableObject {
             applySorting()
         } catch {
             print("Failed to load sessions: \(error)")
+            #if DEBUG
+            print("Raw data that failed to decode: \(String(data: data, encoding: .utf8) ?? "Unable to convert to string")")
+            #endif
             dialogueSessions = []
         }
     }
@@ -140,6 +146,10 @@ final class MainMenuViewModel: ObservableObject {
     
     private func saveSortOption() {
         userDefaults.set(sortOption.rawValue, forKey: sortOptionKey)
+    }
+    
+    private func setDataVersion() {
+        userDefaults.set(currentDataVersion, forKey: dataVersionKey)
     }
     
     // MARK: - Helper Methods
