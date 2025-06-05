@@ -37,7 +37,7 @@ struct MainMenuView: View {
                                 viewModel.setSortOption(option)
                             } label: {
                                 HStack {
-                                    Text(option.rawValue)
+                                    Text(option.displayName)
                                     Image(systemName: option.systemImage)
                                     if viewModel.sortOption == option {
                                         Image(systemName: "checkmark")
@@ -55,7 +55,7 @@ struct MainMenuView: View {
                             showingSettings = true
                         } label: {
                             HStack {
-                                Text("Settings")
+                                Text("Settings".localized)
                                 Image(systemName: "gear")
                             }
                         }
@@ -83,7 +83,7 @@ struct MainMenuView: View {
                     viewModel.saveSession(dialogViewModel)
                 }
             } label: {
-                Text("Add New Dialog")
+                Text("Add Dialogue".localized)
                     .font(.headline)
                     .fontWeight(.semibold)
                     .foregroundColor(.primary)
@@ -117,7 +117,7 @@ struct MainMenuView: View {
                 .font(.system(size: 40))
                 .foregroundStyle(.tertiary)
             
-            Text("No one said a word.")
+            Text("No one said a word.".localized)
                 .font(.title2)
                 .fontWeight(.regular)
                 .foregroundStyle(.tertiary)
@@ -141,7 +141,7 @@ struct MainMenuView: View {
                 }
                 .listRowInsets(EdgeInsets(top: 8, leading: 16, bottom: 8, trailing: 16))
                 .swipeActions(edge: .trailing, allowsFullSwipe: true) {
-                    Button("Delete", role: .destructive) {
+                    Button("Delete".localized, role: .destructive) {
                         viewModel.deleteSession(session)
                     }
                     .tint(.red)
@@ -190,7 +190,7 @@ struct SessionRowView: View {
             
             Spacer()
             
-            Text("\(session.lineCount) lines")
+            Text("\(session.lineCount) \("Lines".localized)")
                 .font(.caption)
                 .fontWeight(.medium)
                 .foregroundColor(.secondary)
@@ -204,17 +204,17 @@ struct SessionRowView: View {
                     showingRenameAlert = true
                 }
         )
-        .alert("Rename Dialog", isPresented: $showingRenameAlert) {
-            TextField("Dialog name", text: $newTitle)
-            Button("Cancel", role: .cancel) { }
-            Button("Save") {
+        .alert("Rename Speaker".localized, isPresented: $showingRenameAlert) {
+            TextField("Dialogue".localized, text: $newTitle)
+            Button("Cancel".localized, role: .cancel) { }
+            Button("Save".localized) {
                 let trimmedTitle = newTitle.trimmingCharacters(in: .whitespacesAndNewlines)
                 if !trimmedTitle.isEmpty {
                     onRename(trimmedTitle)
                 }
             }
         } message: {
-            Text("Enter a new name for this dialog")
+            Text("Enter a new name for this dialog".localized)
         }
     }
 }

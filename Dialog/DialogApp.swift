@@ -10,10 +10,13 @@ import SwiftUI
 @main
 struct DialogApp: App {
     @StateObject private var settingsManager = SettingsManager.shared
+    @StateObject private var localizationManager = LocalizationManager.shared
     
     var body: some Scene {
         WindowGroup {
             MainMenuView()
+                .environmentObject(localizationManager)
+                .id(localizationManager.currentLanguage) // This forces a complete refresh when language changes
         }
     }
 }

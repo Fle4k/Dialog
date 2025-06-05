@@ -2,9 +2,20 @@ import SwiftUI
 
 // MARK: - Sorting Options
 enum DialogSortOption: String, CaseIterable {
-    case alphabetical = "Sort Alphabetically"
-    case dateEdited = "Sort by Date Edited"
-    case dateAdded = "Sort by Date Added"
+    case alphabetical = "alphabetical"
+    case dateEdited = "dateEdited"
+    case dateAdded = "dateAdded"
+    
+    var displayName: String {
+        switch self {
+        case .alphabetical:
+            return "Sort Alphabetically".localized
+        case .dateEdited:
+            return "Sort by Date Edited".localized
+        case .dateAdded:
+            return "Sort by Date Added".localized
+        }
+    }
     
     var systemImage: String {
         switch self {

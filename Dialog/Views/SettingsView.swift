@@ -12,11 +12,11 @@ struct SettingsView: View {
             VStack(spacing: 0) {
                 settingsList
             }
-            .navigationTitle("Settings")
+            .navigationTitle("Settings".localized)
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItem(placement: .topBarTrailing) {
-                    Button("Done") {
+                    Button("Done".localized) {
                         dismiss()
                     }
                     .fontWeight(.semibold)
@@ -33,7 +33,7 @@ struct SettingsView: View {
             Section {
                 centerLinesRow
             } header: {
-                Text("Display")
+                Text("Display".localized)
                     .font(.footnote)
                     .fontWeight(.medium)
                     .foregroundColor(.secondary)
@@ -43,7 +43,7 @@ struct SettingsView: View {
             Section {
                 languageRow
             } header: {
-                Text("Language")
+                Text("Language".localized)
                     .font(.footnote)
                     .fontWeight(.medium)
                     .foregroundColor(.secondary)
@@ -69,7 +69,7 @@ struct SettingsView: View {
                     Spacer()
                 }
             } header: {
-                Text("About")
+                Text("About".localized)
                     .font(.footnote)
                     .fontWeight(.medium)
                     .foregroundColor(.secondary)
@@ -82,7 +82,7 @@ struct SettingsView: View {
     private var centerLinesRow: some View {
         HStack(spacing: 12) {
             VStack(alignment: .leading, spacing: 2) {
-                Text("Center Dialog Lines")
+                Text("Center Dialog Lines".localized)
                     .font(.body)
                     .fontWeight(.medium)
                 
@@ -122,7 +122,7 @@ struct SettingsView: View {
                 ForEach(localizationManager.supportedLanguages.sorted(by: { $0.value < $1.value }), id: \.key) { language, displayName in
                     Button(action: {
                         withAnimation(.easeInOut(duration: 0.3)) {
-                            localizationManager.currentLanguage = language
+                            localizationManager.setLanguage(language)
                         }
                     }) {
                         HStack {
@@ -153,7 +153,7 @@ struct SettingsView: View {
     private var appVersionRow: some View {
         HStack(spacing: 12) {
             VStack(alignment: .leading, spacing: 2) {
-                Text("Version")
+                Text("Version".localized)
                     .font(.body)
                     .fontWeight(.medium)
                 

@@ -171,14 +171,14 @@ struct DialogSceneView: View {
                 )
             }
         }
-        .alert("Rename Dialog", isPresented: $showingTitleRenameAlert) {
-            TextField("Dialog name", text: $newTitle)
-            Button("Cancel", role: .cancel) { }
-            Button("Save") {
+        .alert("Rename Dialog".localized, isPresented: $showingTitleRenameAlert) {
+            TextField("Dialog name".localized, text: $newTitle)
+            Button("Cancel".localized, role: .cancel) { }
+            Button("Save".localized) {
                 viewModel.updateTitle(newTitle)
             }
         } message: {
-            Text("Enter a new name for this dialog")
+            Text("Enter a new name for this dialog".localized)
         }
         .statusBarHidden(viewModel.isFullscreenMode)
         .onAppear {
@@ -292,7 +292,7 @@ struct DialogSceneView: View {
             )
                 
                 if viewModel.isEditingText {
-                    Button("Cancel") {
+                    Button("Cancel".localized) {
                         cancelEditMode()
                     }
                     .foregroundColor(.secondary)
@@ -451,16 +451,16 @@ struct SpeakerSelectorView: View {
                     )
             }
         }
-        .alert("Rename Speaker", isPresented: $showingRenameAlert) {
-            TextField("Speaker name", text: $newSpeakerName)
-            Button("Cancel", role: .cancel) { }
-            Button("Save") {
+        .alert("Rename Speaker".localized, isPresented: $showingRenameAlert) {
+            TextField("Speaker name".localized, text: $newSpeakerName)
+            Button("Cancel".localized, role: .cancel) { }
+            Button("Save".localized) {
                 if let speaker = speakerToRename {
                     viewModel.renameSpeaker(speaker, to: newSpeakerName)
                 }
             }
         } message: {
-            Text("Enter a custom name for this speaker")
+            Text("Enter a custom name for this speaker".localized)
         }
     }
 }
@@ -473,7 +473,7 @@ struct TextInputView: View {
     let selectedSpeaker: Speaker
     
     var body: some View {
-                    TextField(isEditing ? "Edit dialog..." : "Enter dialog...", text: $text, axis: .vertical)
+                    TextField(isEditing ? "Edit dialog...".localized : "Enter dialog...".localized, text: $text, axis: .vertical)
             .lineLimit(1...4)
             .focused($isInputFocused)
             .onSubmit {

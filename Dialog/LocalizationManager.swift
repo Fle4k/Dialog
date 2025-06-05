@@ -20,11 +20,17 @@ class LocalizationManager: ObservableObject {
         if selectedLanguage.isEmpty {
             selectedLanguage = detectSystemLanguage()
         }
+        currentLanguage = selectedLanguage
     }
     
-    var currentLanguage: String {
+    @Published var currentLanguage: String = ""
+    
+    private var selectedLanguageInternal: String {
         get { selectedLanguage }
-        set { selectedLanguage = newValue }
+        set { 
+            selectedLanguage = newValue
+            currentLanguage = newValue
+        }
     }
     
     private func detectSystemLanguage() -> String {
@@ -42,8 +48,12 @@ class LocalizationManager: ObservableObject {
         return "en"
     }
     
+    func setLanguage(_ language: String) {
+        selectedLanguageInternal = language
+    }
+    
     func localizedString(_ key: String) -> String {
-        let path = Bundle.main.path(forResource: selectedLanguage, ofType: "lproj")
+        let path = Bundle.main.path(forResource: currentLanguage, ofType: "lproj")
         let bundle = path != nil ? Bundle(path: path!) : Bundle.main
         return NSLocalizedString(key, tableName: nil, bundle: bundle ?? Bundle.main, value: "", comment: "")
     }
