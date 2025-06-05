@@ -2,8 +2,8 @@
 "Settings" = "Einstellungen";
 "Language" = "Sprache";
 "Done" = "Fertig";
-"Enter dialogue..." = "Dialog eingeben...";
-"Add Dialogue" = "Dialog hinzufügen";
+"Enter dialogue..." = "Text eingeben...";
+"Add Dialogue" = "Neuer Dialog";
 "Rename Speaker" = "Sprecher umbenennen";
 "Save" = "Speichern";
 "Cancel" = "Abbrechen"; 

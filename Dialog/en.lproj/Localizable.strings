@@ -1,9 +1,9 @@
-"Dialogue" = "Dialogue";
+"Dialogue" = "Dialog";
 "Settings" = "Settings";
 "Language" = "Language";
 "Done" = "Done";
-"Enter dialogue..." = "Enter dialogue...";
-"Add Dialogue" = "Add Dialogue";
+"Enter dialogue..." = "Enter dialog...";
+"Add Dialogue" = "New Dialog";
 "Rename Speaker" = "Rename Speaker";
 "Save" = "Save";
 "Cancel" = "Cancel"; 

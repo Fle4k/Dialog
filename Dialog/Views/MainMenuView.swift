@@ -3,6 +3,11 @@ import SwiftUI
 // MARK: - Main Menu View
 struct MainMenuView: View {
     @StateObject private var viewModel = MainMenuViewModel()
+    @StateObject private var undoManager = AppUndoManager.shared
+    @State private var showingSettings = false
+    
+    // Undo state
+    @State private var showingUndoToast = false
     
     var body: some View {
         NavigationStack {
@@ -13,10 +18,21 @@ struct MainMenuView: View {
                 // Add Button at Bottom
                 addButtonView
             }
+            .onShake {
+                handleShakeGesture()
+            }
+            .undoToast(
+                isPresented: $showingUndoToast,
+                actionDescription: viewModel.getLastActionDescription(),
+                onUndo: {
+                    viewModel.performUndo()
+                }
+            )
             .toolbar {
                 ToolbarItem(placement: .topBarTrailing) {
                     Menu {
-                        ForEach(DialogueSortOption.allCases, id: \.self) { option in
+                        // Sort Options Section
+                        ForEach(DialogSortOption.allCases, id: \.self) { option in
                             Button {
                                 viewModel.setSortOption(option)
                             } label: {
@@ -30,11 +46,27 @@ struct MainMenuView: View {
                             }
                             .disabled(viewModel.sortOption == option)
                         }
+                        
+                        // Divider
+                        Divider()
+                        
+                        // Settings Option
+                        Button {
+                            showingSettings = true
+                        } label: {
+                            HStack {
+                                Text("Settings")
+                                Image(systemName: "gear")
+                            }
+                        }
                     } label: {
-                        Image(systemName: "list.bullet")
+                        Image(systemName: "ellipsis")
                             .foregroundColor(.primary)
                     }
                 }
+            }
+            .sheet(isPresented: $showingSettings) {
+                SettingsView()
             }
         }
         .tint(.primary)
@@ -43,16 +75,15 @@ struct MainMenuView: View {
     // MARK: - Add Button View
     private var addButtonView: some View {
         VStack(spacing: 0) {
-            Rectangle()
-                .fill(Color(.systemGray5))
+            Color(.label)
                 .frame(height: 1)
             
             NavigationLink {
-                DialogueSceneView { dialogViewModel in
+                DialogSceneView { dialogViewModel in
                     viewModel.saveSession(dialogViewModel)
                 }
             } label: {
-                Text("Add New Dialogue")
+                Text("Add New Dialog")
                     .font(.headline)
                     .fontWeight(.semibold)
                     .foregroundColor(.primary)
@@ -67,14 +98,40 @@ struct MainMenuView: View {
     
     // MARK: - Sessions List View
     private var sessionsListView: some View {
-        sessionsList
+        Group {
+            if viewModel.dialogSessions.isEmpty {
+                emptyStateView
+            } else {
+                sessionsList
+            }
+        }
+    }
+    
+    // MARK: - Empty State View
+    private var emptyStateView: some View {
+        VStack(spacing: 24) {
+            Spacer()
+            
+            // Talk balloon icon
+            Image(systemName: "bubble.left.and.bubble.right")
+                .font(.system(size: 40))
+                .foregroundStyle(.tertiary)
+            
+            Text("No one said a word.")
+                .font(.title2)
+                .fontWeight(.regular)
+                .foregroundStyle(.tertiary)
+            
+            Spacer()
+        }
+        .frame(maxWidth: .infinity, maxHeight: .infinity)
     }
     
     private var sessionsList: some View {
         List {
-            ForEach(viewModel.dialogueSessions) { session in
+            ForEach(viewModel.dialogSessions) { session in
                 NavigationLink {
-                    DialogueSceneView(existingSession: session) { dialogViewModel in
+                    DialogSceneView(existingSession: session) { dialogViewModel in
                         viewModel.updateSession(session, with: dialogViewModel)
                     }
                 } label: {
@@ -94,11 +151,19 @@ struct MainMenuView: View {
         }
         .listStyle(.plain)
     }
+    
+    // MARK: - Helper Methods
+    private func handleShakeGesture() {
+        guard viewModel.canUndo() else { return }
+        
+        // Show undo confirmation instead of immediately performing undo
+        showingUndoToast = true
+    }
 }
 
 // MARK: - Session Row View
 struct SessionRowView: View {
-    let session: DialogueSession
+            let session: DialogSession
     let onRename: (String) -> Void
     @State private var showingRenameAlert = false
     @State private var newTitle = ""
@@ -139,8 +204,8 @@ struct SessionRowView: View {
                     showingRenameAlert = true
                 }
         )
-        .alert("Rename Dialogue", isPresented: $showingRenameAlert) {
-            TextField("Dialogue name", text: $newTitle)
+        .alert("Rename Dialog", isPresented: $showingRenameAlert) {
+            TextField("Dialog name", text: $newTitle)
             Button("Cancel", role: .cancel) { }
             Button("Save") {
                 let trimmedTitle = newTitle.trimmingCharacters(in: .whitespacesAndNewlines)
@@ -149,7 +214,7 @@ struct SessionRowView: View {
                 }
             }
         } message: {
-            Text("Enter a new name for this dialogue")
+            Text("Enter a new name for this dialog")
         }
     }
 }

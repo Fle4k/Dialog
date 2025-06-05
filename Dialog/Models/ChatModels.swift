@@ -1,7 +1,7 @@
 import Foundation
 
-// MARK: - Dialogue Models
-struct SpeakerText: Identifiable, Hashable {
+// MARK: - Dialog Models
+struct SpeakerText: Identifiable, Hashable, Codable {
     let id: UUID
     let speaker: Speaker
     let text: String
@@ -23,7 +23,7 @@ struct SpeakerText: Identifiable, Hashable {
     }
 }
 
-enum Speaker: String, CaseIterable {
+enum Speaker: String, CaseIterable, Codable {
     case a = "A"
     case b = "B"
     

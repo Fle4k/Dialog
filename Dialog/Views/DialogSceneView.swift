@@ -1,20 +1,86 @@
 import SwiftUI
+import UIKit
 
-// MARK: - Dialogue Scene View
-struct DialogueSceneView: View {
+// MARK: - Scroll Coordinator
+@MainActor
+class ScrollCoordinator: ObservableObject {
+    func scrollToLastText(proxy: ScrollViewProxy, textlines: [SpeakerText]) {
+        guard let lastText = textlines.last else { return }
+        
+        withAnimation(.easeOut(duration: 0.5)) {
+            proxy.scrollTo(lastText.id, anchor: .center)
+        }
+    }
+    
+    func scrollToEditingText(proxy: ScrollViewProxy, editingId: UUID?) {
+        guard let editingId = editingId else { return }
+        
+        withAnimation(.easeOut(duration: 0.5)) {
+            proxy.scrollTo(editingId, anchor: .center)
+        }
+    }
+    
+    func handleTextCountChange(proxy: ScrollViewProxy, viewModel: DialogViewModel) {
+        if !viewModel.isEditingText {
+            scrollToLastText(proxy: proxy, textlines: viewModel.textlines)
+        }
+    }
+    
+    func handleInputAreaChange(proxy: ScrollViewProxy, viewModel: DialogViewModel, showInputArea: Bool) {
+        if showInputArea && !viewModel.textlines.isEmpty {
+            if viewModel.isEditingText {
+                scrollToEditingText(proxy: proxy, editingId: viewModel.editingTextId)
+            } else {
+                DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) {
+                    self.scrollToLastText(proxy: proxy, textlines: viewModel.textlines)
+                }
+            }
+        }
+    }
+    
+    func handleEditingChange(proxy: ScrollViewProxy, editingId: UUID?) {
+        if editingId != nil {
+            scrollToEditingText(proxy: proxy, editingId: editingId)
+        }
+    }
+    
+    func handleFocusChange(proxy: ScrollViewProxy, viewModel: DialogViewModel, focused: Bool) {
+        if focused && !viewModel.textlines.isEmpty {
+            if viewModel.isEditingText {
+                DispatchQueue.main.asyncAfter(deadline: .now() + 0.4) {
+                    self.scrollToEditingText(proxy: proxy, editingId: viewModel.editingTextId)
+                }
+            } else {
+                DispatchQueue.main.asyncAfter(deadline: .now() + 0.4) {
+                    self.scrollToLastText(proxy: proxy, textlines: viewModel.textlines)
+                }
+            }
+        }
+    }
+}
+
+// MARK: - Dialog Scene View
+struct DialogSceneView: View {
     @StateObject private var viewModel = DialogViewModel()
+    @StateObject private var scrollCoordinator = ScrollCoordinator()
+    @StateObject private var settingsManager = SettingsManager.shared
+    @StateObject private var undoManager = AppUndoManager.shared
     @FocusState private var isInputFocused: Bool
-    @State private var showInputArea = false
-    @State private var currentTitle = ""
-    @State private var isFullscreenMode = false
     @Environment(\.dismiss) private var dismiss
     @Environment(\.colorScheme) private var colorScheme
     
+    // Rename alert state
+    @State private var showingTitleRenameAlert = false
+    @State private var newTitle = ""
+    
+    // Undo state
+    @State private var showingUndoToast = false
+    
     let onSave: ((DialogViewModel) -> Void)?
-    let existingSession: DialogueSession?
+    let existingSession: DialogSession?
     let toolbarTransition: Namespace.ID?
     
-    init(existingSession: DialogueSession? = nil, toolbarTransition: Namespace.ID? = nil, onSave: ((DialogViewModel) -> Void)? = nil) {
+    init(existingSession: DialogSession? = nil, toolbarTransition: Namespace.ID? = nil, onSave: ((DialogViewModel) -> Void)? = nil) {
         self.existingSession = existingSession
         self.toolbarTransition = toolbarTransition
         self.onSave = onSave
@@ -23,32 +89,27 @@ struct DialogueSceneView: View {
     var body: some View {
         VStack(spacing: 0) {
             textlinesView
-                .onTapGesture {
-                    if viewModel.isEditingText {
-                        cancelEditMode()
-                    } else if isFullscreenMode {
-                        // Exit fullscreen mode and show input area + navbar
-                        exitFullscreenMode()
-                    } else {
-                        // Tap to show combo if hidden, or dismiss if shown
-                        if !showInputArea {
-                            showInputAreaWithFocus()
-                        } else {
-                            hideInputArea()
-                        }
-                    }
-                }
             
-            if showInputArea && !isFullscreenMode {
+            if viewModel.showInputArea && !viewModel.isFullscreenMode {
                 inputAreaView
                     .transition(.move(edge: .bottom).combined(with: .opacity))
             }
         }
         .background(Color(.systemBackground))
-        .animation(.easeInOut(duration: 0.3), value: showInputArea)
-        .animation(.easeInOut(duration: 0.3), value: isFullscreenMode)
-        .toolbarBackground(isFullscreenMode ? .hidden : .visible, for: .navigationBar)
-        .toolbar(isFullscreenMode ? .hidden : .visible, for: .navigationBar)
+        .animation(.easeInOut(duration: 0.3), value: viewModel.showInputArea)
+        .animation(.easeInOut(duration: 0.3), value: viewModel.isFullscreenMode)
+        .toolbarBackground(viewModel.isFullscreenMode ? .hidden : .visible, for: .navigationBar)
+        .toolbar(viewModel.isFullscreenMode ? .hidden : .visible, for: .navigationBar)
+        .onShake {
+            handleShakeGesture()
+        }
+        .undoToast(
+            isPresented: $showingUndoToast,
+            actionDescription: viewModel.getLastActionDescription(),
+            onUndo: {
+                viewModel.performUndo()
+            }
+        )
         .toolbar {
             ToolbarItem(placement: .topBarTrailing) {
                 Menu {
@@ -86,30 +147,54 @@ struct DialogueSceneView: View {
                 }
             }
         }
-        .navigationTitle(currentTitle)
+        .navigationTitle("")
         .navigationBarTitleDisplayMode(.inline)
-        .statusBarHidden(isFullscreenMode)
-        .onAppear {
-            // Load existing session data if provided
-            if let session = existingSession {
-                currentTitle = session.title
-                viewModel.loadSession(session)
-                
-                // Enter fullscreen mode if there are existing texts
-                if !session.textlines.isEmpty {
-                    enterFullscreenMode()
+        .toolbar {
+            ToolbarItem(placement: .principal) {
+                Button(action: {}) {
+                    Text(viewModel.currentTitle.isEmpty ? "New Dialog" : viewModel.currentTitle)
+                        .font(.headline)
+                        .fontWeight(.semibold)
+                        .foregroundColor(.primary)
                 }
+                .disabled(true)
+                .simultaneousGesture(
+                    LongPressGesture(minimumDuration: 0.5)
+                        .onEnded { _ in
+                            // Add haptic feedback for title selection
+                            let impactFeedback = UIImpactFeedbackGenerator(style: .light)
+                            impactFeedback.impactOccurred()
+                            
+                            newTitle = viewModel.currentTitle.isEmpty ? "New Dialog" : viewModel.currentTitle
+                            showingTitleRenameAlert = true
+                        }
+                )
+            }
+        }
+        .alert("Rename Dialog", isPresented: $showingTitleRenameAlert) {
+            TextField("Dialog name", text: $newTitle)
+            Button("Cancel", role: .cancel) { }
+            Button("Save") {
+                viewModel.updateTitle(newTitle)
+            }
+        } message: {
+            Text("Enter a new name for this dialog")
+        }
+        .statusBarHidden(viewModel.isFullscreenMode)
+        .onAppear {
+            if let session = existingSession {
+                viewModel.initializeForExistingSession(session)
             } else {
-                currentTitle = ""
-                // Only show input area and focus for new dialogues
-                showInputAreaWithFocus()
+                viewModel.initializeForNewSession()
             }
         }
         .onDisappear {
-            // Auto-save when navigating back, but only if there are texts
             if !viewModel.textlines.isEmpty {
                 onSave?(viewModel)
             }
+        }
+        .onChange(of: viewModel.shouldFocusInput) { _, shouldFocus in
+            isInputFocused = shouldFocus
         }
     }
     
@@ -118,41 +203,16 @@ struct DialogueSceneView: View {
         ScrollViewReader { proxy in
             textlinesList
                 .onChange(of: viewModel.textlines.count) { _, _ in
-                    if !viewModel.isEditingText {
-                        scrollToLastText(proxy: proxy)
-                    }
+                    scrollCoordinator.handleTextCountChange(proxy: proxy, viewModel: viewModel)
                 }
-                .onChange(of: showInputArea) { _, newValue in
-                    if newValue && !viewModel.textlines.isEmpty {
-                        if viewModel.isEditingText {
-                            scrollToEditingText(proxy: proxy)
-                        } else {
-                            // Delay scroll to allow input area animation to complete
-                            DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) {
-                                scrollToLastText(proxy: proxy)
-                            }
-                        }
-                    }
+                .onChange(of: viewModel.showInputArea) { _, newValue in
+                    scrollCoordinator.handleInputAreaChange(proxy: proxy, viewModel: viewModel, showInputArea: newValue)
                 }
                 .onChange(of: viewModel.editingTextId) { _, editingId in
-                    if editingId != nil {
-                        scrollToEditingText(proxy: proxy)
-                    }
+                    scrollCoordinator.handleEditingChange(proxy: proxy, editingId: editingId)
                 }
                 .onChange(of: isInputFocused) { _, focused in
-                    if focused && !viewModel.textlines.isEmpty {
-                        if viewModel.isEditingText {
-                            // When keyboard appears during editing, ensure editing text is visible
-                            DispatchQueue.main.asyncAfter(deadline: .now() + 0.4) {
-                                scrollToEditingText(proxy: proxy)
-                            }
-                        } else {
-                            // When keyboard appears for new text, ensure last text is visible
-                            DispatchQueue.main.asyncAfter(deadline: .now() + 0.4) {
-                                scrollToLastText(proxy: proxy)
-                            }
-                        }
-                    }
+                    scrollCoordinator.handleFocusChange(proxy: proxy, viewModel: viewModel, focused: focused)
                 }
         }
     }
@@ -164,8 +224,11 @@ struct DialogueSceneView: View {
             }
         }
         .listStyle(.plain)
-        .contentMargins(.bottom, showInputArea ? 60 : 0)
-        .contentMargins(.top, isFullscreenMode ? 0 : (viewModel.isEditingText ? 20 : 0))
+        .contentMargins(.bottom, viewModel.showInputArea ? 60 : 0)
+        .contentMargins(.top, viewModel.isFullscreenMode ? 0 : (viewModel.isEditingText ? 20 : 0))
+        .onTapGesture {
+            viewModel.handleViewTap()
+        }
     }
     
     private var textlinesForEach: some View {
@@ -174,7 +237,8 @@ struct DialogueSceneView: View {
                 speakerText: speakerText,
                 speakerName: viewModel.getSpeakerName(for: speakerText.speaker),
                 isFlagged: viewModel.isTextFlagged(speakerText.id),
-                isBeingEdited: viewModel.editingTextId == speakerText.id
+                isBeingEdited: viewModel.editingTextId == speakerText.id,
+                centerLines: settingsManager.centerLinesEnabled
             )
             .listRowBackground(Color.clear)
             .listRowSeparator(.hidden)
@@ -189,7 +253,7 @@ struct DialogueSceneView: View {
                 Button {
                     viewModel.toggleFlag(for: speakerText.id)
                 } label: {
-                    Image(systemName: "star.fill")
+                    Image(systemName: "flag.fill")
                 }
                 .tint(.orange)
             }
@@ -206,10 +270,8 @@ struct DialogueSceneView: View {
     // MARK: - Input Area View
     private var inputAreaView: some View {
         VStack(spacing: 0) {
-            Rectangle()
-                .fill(Color(.systemGray5))
+            Color(.label)
                 .frame(height: 1)
-                .padding(.horizontal)
             
             SpeakerSelectorView(
                 selectedSpeaker: $viewModel.selectedSpeaker, 
@@ -248,67 +310,23 @@ struct DialogueSceneView: View {
     }
     
     // MARK: - Helper Methods
-    private func showInputAreaWithFocus() {
-        // Set the correct speaker based on the last text before showing input area
-        if !viewModel.isEditingText {
-            viewModel.setNextSpeakerBasedOnLastText()
-        }
-        showInputArea = true
-        // Delay focus to ensure the input area is visible
-        DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
-            isInputFocused = true
-        }
-    }
-    
-    private func hideInputArea() {
-        isInputFocused = false
-        showInputArea = false
-    }
-    
     private func startEditingText(_ speakerText: SpeakerText) {
+        // Add haptic feedback for selection
+        let impactFeedback = UIImpactFeedbackGenerator(style: .light)
+        impactFeedback.impactOccurred()
+        
         viewModel.startEditingText(speakerText)
-        if isFullscreenMode {
-            exitFullscreenMode()
-        } else {
-            showInputAreaWithFocus()
-        }
     }
     
     private func cancelEditMode() {
-        viewModel.exitEditMode()
-        viewModel.inputText = ""
-        // Restore proper speaker turn based on last text
-        viewModel.setNextSpeakerBasedOnLastText()
-        hideInputArea()
+        viewModel.cancelEditMode()
     }
     
-    private func scrollToLastText(proxy: ScrollViewProxy) {
-        guard let lastText = viewModel.textlines.last else { return }
+    private func handleShakeGesture() {
+        guard viewModel.canUndo() else { return }
         
-        withAnimation(.easeOut(duration: 0.5)) {
-            // Use center anchor to keep the last text visible above the keyboard
-            proxy.scrollTo(lastText.id, anchor: .center)
-        }
-    }
-    
-    private func exitFullscreenMode() {
-        isFullscreenMode = false
-        showInputAreaWithFocus()
-    }
-    
-    private func enterFullscreenMode() {
-        isFullscreenMode = true
-        showInputArea = false
-        isInputFocused = false
-    }
-    
-    private func scrollToEditingText(proxy: ScrollViewProxy) {
-        guard let editingId = viewModel.editingTextId else { return }
-        
-        withAnimation(.easeOut(duration: 0.5)) {
-            // Use center anchor to keep the editing text visible above the keyboard
-            proxy.scrollTo(editingId, anchor: .center)
-        }
+        // Show undo confirmation instead of immediately performing undo
+        showingUndoToast = true
     }
 }
 
@@ -318,6 +336,7 @@ struct SpeakerTextRowView: View {
     let speakerName: String
     let isFlagged: Bool
     let isBeingEdited: Bool
+    let centerLines: Bool
     
     var isSpeakerA: Bool {
         speakerText.speaker == .a
@@ -325,12 +344,16 @@ struct SpeakerTextRowView: View {
     
     var body: some View {
         HStack {
-            if isSpeakerA {
-                speakerAView
-                Spacer()
+            if centerLines {
+                centeredView
             } else {
-                Spacer()
-                speakerBView
+                if isSpeakerA {
+                    speakerAView
+                    Spacer()
+                } else {
+                    Spacer()
+                    speakerBView
+                }
             }
         }
         .padding()
@@ -349,14 +372,29 @@ struct SpeakerTextRowView: View {
         }
     }
     
+    private var centeredView: some View {
+        VStack(alignment: .center, spacing: 4) {
+            Text(speakerName)
+                .font(.headline)
+                .fontWeight(.black)
+            
+            Text(speakerText.text)
+                .font(.body)
+                .fontWeight(.light)
+                .multilineTextAlignment(.center)
+        }
+        .frame(maxWidth: .infinity)
+    }
+    
     private var speakerAView: some View {
         VStack(alignment: .leading, spacing: 4) {
             Text(speakerName)
                 .font(.headline)
-                .fontWeight(.bold)
+                .fontWeight(.black)
             
             Text(speakerText.text)
                 .font(.body)
+                .fontWeight(.light)
         }
     }
     
@@ -364,10 +402,11 @@ struct SpeakerTextRowView: View {
         VStack(alignment: .trailing, spacing: 4) {
             Text(speakerName)
                 .font(.headline)
-                .fontWeight(.bold)
+                .fontWeight(.black)
             
             Text(speakerText.text)
                 .font(.body)
+                .fontWeight(.light)
                 .multilineTextAlignment(.trailing)
         }
     }
@@ -392,23 +431,22 @@ struct SpeakerSelectorView: View {
                     .frame(maxWidth: .infinity)
                     .frame(height: 32)
                     .contentShape(Rectangle())
-                    .opacity(isEditingMode ? 0.5 : 1.0)
-                    .simultaneousGesture(
-                        TapGesture()
-                            .onEnded { _ in
-                                if !isEditingMode {
-                                    selectedSpeaker = speaker
-                                }
-                            }
-                    )
+                    .opacity(isEditingMode ? (selectedSpeaker == speaker ? 1.0 : 0.7) : 1.0)
+                    .onTapGesture {
+                        if isEditingMode {
+                            // In edit mode, temporarily change the selected speaker
+                            viewModel.setTemporarySpeaker(speaker)
+                        } else {
+                            // In normal mode, just select the speaker for new text
+                            selectedSpeaker = speaker
+                        }
+                    }
                     .simultaneousGesture(
                         LongPressGesture(minimumDuration: 0.5)
                             .onEnded { _ in
-                                if !isEditingMode {
-                                    speakerToRename = speaker
-                                    newSpeakerName = viewModel.customSpeakerNames[speaker] ?? ""
-                                    showingRenameAlert = true
-                                }
+                                speakerToRename = speaker
+                                newSpeakerName = viewModel.customSpeakerNames[speaker] ?? ""
+                                showingRenameAlert = true
                             }
                     )
             }
@@ -435,7 +473,7 @@ struct TextInputView: View {
     let selectedSpeaker: Speaker
     
     var body: some View {
-        TextField(isEditing ? "Edit dialogue..." : "Enter dialogue...", text: $text, axis: .vertical)
+                    TextField(isEditing ? "Edit dialog..." : "Enter dialog...", text: $text, axis: .vertical)
             .lineLimit(1...4)
             .focused($isInputFocused)
             .onSubmit {
@@ -450,10 +488,10 @@ struct TextInputView: View {
 
 // MARK: - Previews
 #Preview("Light Mode") {
-    DialogueSceneView()
+    DialogSceneView()
 }
 
 #Preview("Dark Mode") {
-    DialogueSceneView()
+    DialogSceneView()
         .preferredColorScheme(.dark)
 } 
