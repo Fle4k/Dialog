@@ -6,8 +6,8 @@
 "Add Dialogue" = "Neuer Dialog";
 "Rename Speaker" = "Figur umbenennen";
 "Save" = "Speichern";
-"Cancel" = "Abbrechen";
-"Lines" = "Zeilen";
+"Cancel" = "Abbrechen"; 
+"Lines" = "Zeilen"; 
 "Choose your preferred language" = "Wähle deine bevorzugte Sprache";
 "Display all characters centered instead of left/right" = "Alle Figuren zentriert statt links/rechts anzeigen";
 "Display" = "Anzeige";
@@ -27,4 +27,6 @@
 "Speaker name" = "Figur-Name";
 "Enter a custom name for this speaker" = "Gib einen Namen für diese Figur ein";
 "Edit dialog..." = "Dialog bearbeiten...";
-"Enter dialog..." = "Text eingeben..."; 
+"Enter dialog..." = "Text eingeben...";
+"Recommended Apps" = "Empfohlene Apps";
+"Apps that work great with this one" = "Apps, die gut mit dieser funktionieren";

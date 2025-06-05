@@ -6,8 +6,8 @@
 "Add Dialogue" = "New Dialog";
 "Rename Speaker" = "Rename Character";
 "Save" = "Save";
-"Cancel" = "Cancel";
-"Lines" = "lines";
+"Cancel" = "Cancel"; 
+"Lines" = "lines"; 
 "Choose your preferred language" = "Choose your preferred language";
 "Display all characters centered instead of left/right" = "Display all characters centered instead of left/right";
 "Display" = "Display";
@@ -27,4 +27,6 @@
 "Speaker name" = "Speaker name";
 "Enter a custom name for this speaker" = "Enter a custom name for this speaker";
 "Edit dialog..." = "Edit dialog...";
-"Enter dialog..." = "Enter dialog..."; 
+"Enter dialog..." = "Enter dialog...";
+"Recommended Apps" = "Recommended Apps";
+"Apps that work great with this one" = "Apps that work great with this one"; 

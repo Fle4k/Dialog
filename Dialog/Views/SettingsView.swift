@@ -49,6 +49,21 @@ struct SettingsView: View {
                     .foregroundColor(.secondary)
             }
             
+            // Recommended Apps Section
+            Section {
+                CharacterCreatorRecommendationView()
+            } header: {
+                Text("Recommended App".localized)
+                    .font(.footnote)
+                    .fontWeight(.medium)
+                    .foregroundColor(.secondary)
+            }
+//            footer: {
+//                Text("Apps that work great with this one".localized)
+//                    .font(.caption)
+//                    .foregroundColor(.secondary)
+//            }
+            
             // About Section
             Section {
                 appVersionRow
@@ -144,7 +159,7 @@ struct SettingsView: View {
                         .font(.caption2)
                         .foregroundColor(.secondary)
                 }
-            }
+                }
         }
         .padding(.vertical, 4)
     }
