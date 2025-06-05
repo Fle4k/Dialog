@@ -1,7 +1,7 @@
 {
   "images" : [
     {
-      "filename" : "DialogAppIcon_02.png",
+      "filename" : "DialogProAppIcon_Light.jpg",
       "idiom" : "universal",
       "platform" : "ios",
       "size" : "1024x1024"
@@ -13,6 +13,7 @@
           "value" : "dark"
         }
       ],
+      "filename" : "DialogProAppIcon_Dark.jpg",
       "idiom" : "universal",
       "platform" : "ios",
       "size" : "1024x1024"
@@ -24,6 +25,7 @@
           "value" : "tinted"
         }
       ],
+      "filename" : "DialogProAppIcon_Dark 1.jpg",
       "idiom" : "universal",
       "platform" : "ios",
       "size" : "1024x1024"

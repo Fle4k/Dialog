@@ -1,4 +1,5 @@
 import SwiftUI
+import UIKit
 
 // MARK: - Scroll Coordinator
 @MainActor
@@ -58,19 +59,28 @@ class ScrollCoordinator: ObservableObject {
     }
 }
 
-// MARK: - Dialogue Scene View
-struct DialogueSceneView: View {
+// MARK: - Dialog Scene View
+struct DialogSceneView: View {
     @StateObject private var viewModel = DialogViewModel()
     @StateObject private var scrollCoordinator = ScrollCoordinator()
+    @StateObject private var settingsManager = SettingsManager.shared
+    @StateObject private var undoManager = AppUndoManager.shared
     @FocusState private var isInputFocused: Bool
     @Environment(\.dismiss) private var dismiss
     @Environment(\.colorScheme) private var colorScheme
     
+    // Rename alert state
+    @State private var showingTitleRenameAlert = false
+    @State private var newTitle = ""
+    
+    // Undo state
+    @State private var showingUndoToast = false
+    
     let onSave: ((DialogViewModel) -> Void)?
-    let existingSession: DialogueSession?
+    let existingSession: DialogSession?
     let toolbarTransition: Namespace.ID?
     
-    init(existingSession: DialogueSession? = nil, toolbarTransition: Namespace.ID? = nil, onSave: ((DialogViewModel) -> Void)? = nil) {
+    init(existingSession: DialogSession? = nil, toolbarTransition: Namespace.ID? = nil, onSave: ((DialogViewModel) -> Void)? = nil) {
         self.existingSession = existingSession
         self.toolbarTransition = toolbarTransition
         self.onSave = onSave
@@ -90,6 +100,16 @@ struct DialogueSceneView: View {
         .animation(.easeInOut(duration: 0.3), value: viewModel.isFullscreenMode)
         .toolbarBackground(viewModel.isFullscreenMode ? .hidden : .visible, for: .navigationBar)
         .toolbar(viewModel.isFullscreenMode ? .hidden : .visible, for: .navigationBar)
+        .onShake {
+            handleShakeGesture()
+        }
+        .undoToast(
+            isPresented: $showingUndoToast,
+            actionDescription: viewModel.getLastActionDescription(),
+            onUndo: {
+                viewModel.performUndo()
+            }
+        )
         .toolbar {
             ToolbarItem(placement: .topBarTrailing) {
                 Menu {
@@ -127,8 +147,39 @@ struct DialogueSceneView: View {
                 }
             }
         }
-        .navigationTitle(viewModel.currentTitle)
+        .navigationTitle("")
         .navigationBarTitleDisplayMode(.inline)
+        .toolbar {
+            ToolbarItem(placement: .principal) {
+                Button(action: {}) {
+                    Text(viewModel.currentTitle.isEmpty ? "New Dialog" : viewModel.currentTitle)
+                        .font(.headline)
+                        .fontWeight(.semibold)
+                        .foregroundColor(.primary)
+                }
+                .disabled(true)
+                .simultaneousGesture(
+                    LongPressGesture(minimumDuration: 0.5)
+                        .onEnded { _ in
+                            // Add haptic feedback for title selection
+                            let impactFeedback = UIImpactFeedbackGenerator(style: .light)
+                            impactFeedback.impactOccurred()
+                            
+                            newTitle = viewModel.currentTitle.isEmpty ? "New Dialog" : viewModel.currentTitle
+                            showingTitleRenameAlert = true
+                        }
+                )
+            }
+        }
+        .alert("Rename Dialog".localized, isPresented: $showingTitleRenameAlert) {
+            TextField("Dialog name".localized, text: $newTitle)
+            Button("Cancel".localized, role: .cancel) { }
+            Button("Save".localized) {
+                viewModel.updateTitle(newTitle)
+            }
+        } message: {
+            Text("Enter a new name for this dialog".localized)
+        }
         .statusBarHidden(viewModel.isFullscreenMode)
         .onAppear {
             if let session = existingSession {
@@ -186,7 +237,8 @@ struct DialogueSceneView: View {
                 speakerText: speakerText,
                 speakerName: viewModel.getSpeakerName(for: speakerText.speaker),
                 isFlagged: viewModel.isTextFlagged(speakerText.id),
-                isBeingEdited: viewModel.editingTextId == speakerText.id
+                isBeingEdited: viewModel.editingTextId == speakerText.id,
+                centerLines: settingsManager.centerLinesEnabled
             )
             .listRowBackground(Color.clear)
             .listRowSeparator(.hidden)
@@ -240,7 +292,7 @@ struct DialogueSceneView: View {
             )
                 
                 if viewModel.isEditingText {
-                    Button("Cancel") {
+                    Button("Cancel".localized) {
                         cancelEditMode()
                     }
                     .foregroundColor(.secondary)
@@ -259,11 +311,22 @@ struct DialogueSceneView: View {
     
     // MARK: - Helper Methods
     private func startEditingText(_ speakerText: SpeakerText) {
+        // Add haptic feedback for selection
+        let impactFeedback = UIImpactFeedbackGenerator(style: .light)
+        impactFeedback.impactOccurred()
+        
         viewModel.startEditingText(speakerText)
     }
     
     private func cancelEditMode() {
         viewModel.cancelEditMode()
+    }
+    
+    private func handleShakeGesture() {
+        guard viewModel.canUndo() else { return }
+        
+        // Show undo confirmation instead of immediately performing undo
+        showingUndoToast = true
     }
 }
 
@@ -273,6 +336,7 @@ struct SpeakerTextRowView: View {
     let speakerName: String
     let isFlagged: Bool
     let isBeingEdited: Bool
+    let centerLines: Bool
     
     var isSpeakerA: Bool {
         speakerText.speaker == .a
@@ -280,12 +344,16 @@ struct SpeakerTextRowView: View {
     
     var body: some View {
         HStack {
-            if isSpeakerA {
-                speakerAView
-                Spacer()
+            if centerLines {
+                centeredView
             } else {
-                Spacer()
-                speakerBView
+                if isSpeakerA {
+                    speakerAView
+                    Spacer()
+                } else {
+                    Spacer()
+                    speakerBView
+                }
             }
         }
         .padding()
@@ -302,6 +370,20 @@ struct SpeakerTextRowView: View {
         } else {
             return Color(.label) // Use .label instead of .primary for better contrast
         }
+    }
+    
+    private var centeredView: some View {
+        VStack(alignment: .center, spacing: 4) {
+            Text(speakerName)
+                .font(.headline)
+                .fontWeight(.black)
+            
+            Text(speakerText.text)
+                .font(.body)
+                .fontWeight(.light)
+                .multilineTextAlignment(.center)
+        }
+        .frame(maxWidth: .infinity)
     }
     
     private var speakerAView: some View {
@@ -369,16 +451,16 @@ struct SpeakerSelectorView: View {
                     )
             }
         }
-        .alert("Rename Speaker", isPresented: $showingRenameAlert) {
-            TextField("Speaker name", text: $newSpeakerName)
-            Button("Cancel", role: .cancel) { }
-            Button("Save") {
+        .alert("Rename Speaker".localized, isPresented: $showingRenameAlert) {
+            TextField("Speaker name".localized, text: $newSpeakerName)
+            Button("Cancel".localized, role: .cancel) { }
+            Button("Save".localized) {
                 if let speaker = speakerToRename {
                     viewModel.renameSpeaker(speaker, to: newSpeakerName)
                 }
             }
         } message: {
-            Text("Enter a custom name for this speaker")
+            Text("Enter a custom name for this speaker".localized)
         }
     }
 }
@@ -391,7 +473,7 @@ struct TextInputView: View {
     let selectedSpeaker: Speaker
     
     var body: some View {
-        TextField(isEditing ? "Edit dialogue..." : "Enter dialogue...", text: $text, axis: .vertical)
+                    TextField(isEditing ? "Edit dialog...".localized : "Enter dialog...".localized, text: $text, axis: .vertical)
             .lineLimit(1...4)
             .focused($isInputFocused)
             .onSubmit {
@@ -406,10 +488,10 @@ struct TextInputView: View {
 
 // MARK: - Previews
 #Preview("Light Mode") {
-    DialogueSceneView()
+    DialogSceneView()
 }
 
 #Preview("Dark Mode") {
-    DialogueSceneView()
+    DialogSceneView()
         .preferredColorScheme(.dark)
 } 

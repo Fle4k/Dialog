@@ -3,6 +3,11 @@ import SwiftUI
 // MARK: - Main Menu View
 struct MainMenuView: View {
     @StateObject private var viewModel = MainMenuViewModel()
+    @StateObject private var undoManager = AppUndoManager.shared
+    @State private var showingSettings = false
+    
+    // Undo state
+    @State private var showingUndoToast = false
     
     var body: some View {
         NavigationStack {
@@ -13,15 +18,26 @@ struct MainMenuView: View {
                 // Add Button at Bottom
                 addButtonView
             }
+            .onShake {
+                handleShakeGesture()
+            }
+            .undoToast(
+                isPresented: $showingUndoToast,
+                actionDescription: viewModel.getLastActionDescription(),
+                onUndo: {
+                    viewModel.performUndo()
+                }
+            )
             .toolbar {
                 ToolbarItem(placement: .topBarTrailing) {
                     Menu {
-                        ForEach(DialogueSortOption.allCases, id: \.self) { option in
+                        // Sort Options Section
+                        ForEach(DialogSortOption.allCases, id: \.self) { option in
                             Button {
                                 viewModel.setSortOption(option)
                             } label: {
                                 HStack {
-                                    Text(option.rawValue)
+                                    Text(option.displayName)
                                     Image(systemName: option.systemImage)
                                     if viewModel.sortOption == option {
                                         Image(systemName: "checkmark")
@@ -30,11 +46,27 @@ struct MainMenuView: View {
                             }
                             .disabled(viewModel.sortOption == option)
                         }
+                        
+                        // Divider
+                        Divider()
+                        
+                        // Settings Option
+                        Button {
+                            showingSettings = true
+                        } label: {
+                            HStack {
+                                Text("Settings".localized)
+                                Image(systemName: "gear")
+                            }
+                        }
                     } label: {
-                        Image(systemName: "list.bullet")
+                        Image(systemName: "ellipsis")
                             .foregroundColor(.primary)
                     }
                 }
+            }
+            .sheet(isPresented: $showingSettings) {
+                SettingsView()
             }
         }
         .tint(.primary)
@@ -47,11 +79,11 @@ struct MainMenuView: View {
                 .frame(height: 1)
             
             NavigationLink {
-                DialogueSceneView { dialogViewModel in
+                DialogSceneView { dialogViewModel in
                     viewModel.saveSession(dialogViewModel)
                 }
             } label: {
-                Text("Add New Dialogue")
+                Text("Add Dialogue".localized)
                     .font(.headline)
                     .fontWeight(.semibold)
                     .foregroundColor(.primary)
@@ -67,7 +99,7 @@ struct MainMenuView: View {
     // MARK: - Sessions List View
     private var sessionsListView: some View {
         Group {
-            if viewModel.dialogueSessions.isEmpty {
+            if viewModel.dialogSessions.isEmpty {
                 emptyStateView
             } else {
                 sessionsList
@@ -85,7 +117,7 @@ struct MainMenuView: View {
                 .font(.system(size: 40))
                 .foregroundStyle(.tertiary)
             
-            Text("No one said a word.")
+            Text("No one said a word.".localized)
                 .font(.title2)
                 .fontWeight(.regular)
                 .foregroundStyle(.tertiary)
@@ -97,9 +129,9 @@ struct MainMenuView: View {
     
     private var sessionsList: some View {
         List {
-            ForEach(viewModel.dialogueSessions) { session in
+            ForEach(viewModel.dialogSessions) { session in
                 NavigationLink {
-                    DialogueSceneView(existingSession: session) { dialogViewModel in
+                    DialogSceneView(existingSession: session) { dialogViewModel in
                         viewModel.updateSession(session, with: dialogViewModel)
                     }
                 } label: {
@@ -109,7 +141,7 @@ struct MainMenuView: View {
                 }
                 .listRowInsets(EdgeInsets(top: 8, leading: 16, bottom: 8, trailing: 16))
                 .swipeActions(edge: .trailing, allowsFullSwipe: true) {
-                    Button("Delete", role: .destructive) {
+                    Button("Delete".localized, role: .destructive) {
                         viewModel.deleteSession(session)
                     }
                     .tint(.red)
@@ -119,11 +151,19 @@ struct MainMenuView: View {
         }
         .listStyle(.plain)
     }
+    
+    // MARK: - Helper Methods
+    private func handleShakeGesture() {
+        guard viewModel.canUndo() else { return }
+        
+        // Show undo confirmation instead of immediately performing undo
+        showingUndoToast = true
+    }
 }
 
 // MARK: - Session Row View
 struct SessionRowView: View {
-    let session: DialogueSession
+            let session: DialogSession
     let onRename: (String) -> Void
     @State private var showingRenameAlert = false
     @State private var newTitle = ""
@@ -150,7 +190,7 @@ struct SessionRowView: View {
             
             Spacer()
             
-            Text("\(session.lineCount) lines")
+            Text("\(session.lineCount) \("Lines".localized)")
                 .font(.caption)
                 .fontWeight(.medium)
                 .foregroundColor(.secondary)
@@ -164,17 +204,17 @@ struct SessionRowView: View {
                     showingRenameAlert = true
                 }
         )
-        .alert("Rename Dialogue", isPresented: $showingRenameAlert) {
-            TextField("Dialogue name", text: $newTitle)
-            Button("Cancel", role: .cancel) { }
-            Button("Save") {
+        .alert("Rename Speaker".localized, isPresented: $showingRenameAlert) {
+            TextField("Dialogue".localized, text: $newTitle)
+            Button("Cancel".localized, role: .cancel) { }
+            Button("Save".localized) {
                 let trimmedTitle = newTitle.trimmingCharacters(in: .whitespacesAndNewlines)
                 if !trimmedTitle.isEmpty {
                     onRename(trimmedTitle)
                 }
             }
         } message: {
-            Text("Enter a new name for this dialogue")
+            Text("Enter a new name for this dialog".localized)
         }
     }
 }

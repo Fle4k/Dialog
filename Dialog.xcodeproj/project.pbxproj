@@ -24,14 +24,27 @@
 /* End PBXContainerItemProxy section */
 
 /* Begin PBXFileReference section */
-		DBF1A38F2DD7B1050001AE4C /* Dialog.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = Dialog.app; sourceTree = BUILT_PRODUCTS_DIR; };
+		DBF1A38F2DD7B1050001AE4C /* Dialog Pro.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = "Dialog Pro.app"; sourceTree = BUILT_PRODUCTS_DIR; };
 		DBF1A39F2DD7B1060001AE4C /* DialogTests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = DialogTests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
 		DBF1A3A92DD7B1060001AE4C /* DialogUITests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = DialogUITests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
 /* End PBXFileReference section */
 
+/* Begin PBXFileSystemSynchronizedBuildFileExceptionSet section */
+		DB3E49CD2DF065C10047890E /* Exceptions for "Dialog" folder in "Dialog" target */ = {
+			isa = PBXFileSystemSynchronizedBuildFileExceptionSet;
+			membershipExceptions = (
+				Info.plist,
+			);
+			target = DBF1A38E2DD7B1040001AE4C /* Dialog */;
+		};
+/* End PBXFileSystemSynchronizedBuildFileExceptionSet section */
+
 /* Begin PBXFileSystemSynchronizedRootGroup section */
 		DBF1A3912DD7B1050001AE4C /* Dialog */ = {
 			isa = PBXFileSystemSynchronizedRootGroup;
+			exceptions = (
+				DB3E49CD2DF065C10047890E /* Exceptions for "Dialog" folder in "Dialog" target */,
+			);
 			path = Dialog;
 			sourceTree = "<group>";
 		};
@@ -85,7 +98,7 @@
 		DBF1A3902DD7B1050001AE4C /* Products */ = {
 			isa = PBXGroup;
 			children = (
-				DBF1A38F2DD7B1050001AE4C /* Dialog.app */,
+				DBF1A38F2DD7B1050001AE4C /* Dialog Pro.app */,
 				DBF1A39F2DD7B1060001AE4C /* DialogTests.xctest */,
 				DBF1A3A92DD7B1060001AE4C /* DialogUITests.xctest */,
 			);
@@ -114,7 +127,7 @@
 			packageProductDependencies = (
 			);
 			productName = Dialog;
-			productReference = DBF1A38F2DD7B1050001AE4C /* Dialog.app */;
+			productReference = DBF1A38F2DD7B1050001AE4C /* Dialog Pro.app */;
 			productType = "com.apple.product-type.application";
 		};
 		DBF1A39E2DD7B1060001AE4C /* DialogTests */ = {
@@ -193,6 +206,10 @@
 				en,
 				Base,
 				de,
+				es,
+				fr,
+				it,
+				fi,
 			);
 			mainGroup = DBF1A3862DD7B1040001AE4C;
 			minimizedProjectReferenceProxies = 1;
@@ -394,12 +411,15 @@
 			buildSettings = {
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
 				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
+				CODE_SIGN_ENTITLEMENTS = Dialog/Dialog.entitlements;
 				CODE_SIGN_STYLE = Automatic;
 				CURRENT_PROJECT_VERSION = 3;
 				DEVELOPMENT_ASSET_PATHS = "\"Dialog/Preview Content\"";
 				DEVELOPMENT_TEAM = QLZAR4XX2G;
 				ENABLE_PREVIEWS = YES;
 				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_FILE = Dialog/Info.plist;
+				INFOPLIST_KEY_CFBundleDisplayName = "Dialog Pro";
 				INFOPLIST_KEY_LSApplicationCategoryType = "public.app-category.productivity";
 				INFOPLIST_KEY_UIApplicationSceneManifest_Generation = YES;
 				INFOPLIST_KEY_UIApplicationSupportsIndirectInputEvents = YES;
@@ -413,7 +433,7 @@
 				);
 				MARKETING_VERSION = 0.6.0;
 				PRODUCT_BUNDLE_IDENTIFIER = de.metame.Dialog;
-				PRODUCT_NAME = "$(TARGET_NAME)";
+				PRODUCT_NAME = "Dialog Pro";
 				SUPPORTED_PLATFORMS = "iphoneos iphonesimulator";
 				SUPPORTS_MACCATALYST = NO;
 				SWIFT_EMIT_LOC_STRINGS = YES;
@@ -427,12 +447,15 @@
 			buildSettings = {
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
 				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
+				CODE_SIGN_ENTITLEMENTS = Dialog/Dialog.entitlements;
 				CODE_SIGN_STYLE = Automatic;
 				CURRENT_PROJECT_VERSION = 3;
 				DEVELOPMENT_ASSET_PATHS = "\"Dialog/Preview Content\"";
 				DEVELOPMENT_TEAM = QLZAR4XX2G;
 				ENABLE_PREVIEWS = YES;
 				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_FILE = Dialog/Info.plist;
+				INFOPLIST_KEY_CFBundleDisplayName = "Dialog Pro";
 				INFOPLIST_KEY_LSApplicationCategoryType = "public.app-category.productivity";
 				INFOPLIST_KEY_UIApplicationSceneManifest_Generation = YES;
 				INFOPLIST_KEY_UIApplicationSupportsIndirectInputEvents = YES;
@@ -446,7 +469,7 @@
 				);
 				MARKETING_VERSION = 0.6.0;
 				PRODUCT_BUNDLE_IDENTIFIER = de.metame.Dialog;
-				PRODUCT_NAME = "$(TARGET_NAME)";
+				PRODUCT_NAME = "Dialog Pro";
 				SUPPORTED_PLATFORMS = "iphoneos iphonesimulator";
 				SUPPORTS_MACCATALYST = NO;
 				SWIFT_EMIT_LOC_STRINGS = YES;

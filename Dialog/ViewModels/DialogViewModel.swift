@@ -1,8 +1,12 @@
 import SwiftUI
+import UIKit
 
 // MARK: - Dialog View Model
 @MainActor
 final class DialogViewModel: ObservableObject {
+    // MARK: - Undo Manager
+    private let undoManager = AppUndoManager.shared
+    
     // MARK: - Data Properties
     @Published var textlines: [SpeakerText] = []
     @Published var selectedSpeaker: Speaker = .a
@@ -24,12 +28,12 @@ final class DialogViewModel: ObservableObject {
     // MARK: - UI State Management
     func initializeForNewSession() {
         currentTitle = ""
-        // Start in writing mode for immediate dialogue writing
+        // Start in writing mode for immediate dialog writing
         isFullscreenMode = false
         showInputAreaWithFocus()
     }
     
-    func initializeForExistingSession(_ session: DialogueSession) {
+    func initializeForExistingSession(_ session: DialogSession) {
         currentTitle = session.title
         loadSession(session)
         
@@ -113,11 +117,31 @@ final class DialogViewModel: ObservableObject {
         guard !trimmedText.isEmpty else { return }
         
         if isEditingText, let editingId = editingTextId {
+            // Store original values for undo
+            if let index = textlines.firstIndex(where: { $0.id == editingId }) {
+                let originalText = textlines[index]
+                undoManager.recordAction(.editText(
+                    id: editingId,
+                    oldText: originalText.text,
+                    newText: trimmedText,
+                    oldSpeaker: originalText.speaker,
+                    newSpeaker: selectedSpeaker
+                ))
+            }
+            
             // Apply both text and speaker changes when saving the edit
             updateText(withId: editingId, newText: trimmedText, newSpeaker: selectedSpeaker)
             setNextSpeakerBasedOnLastText()
+            
+            // Add haptic feedback for successful edit confirmation
+            let notificationFeedback = UINotificationFeedbackGenerator()
+            notificationFeedback.notificationOccurred(.success)
         } else {
             let speakerText = SpeakerText(speaker: selectedSpeaker, text: trimmedText)
+            
+            // Record undo action
+            undoManager.recordAction(.addText(speakerText))
+            
             textlines.append(speakerText)
             selectedSpeaker.toggle()
         }
@@ -125,7 +149,7 @@ final class DialogViewModel: ObservableObject {
         inputText = ""
         exitEditMode()
         
-        // Stay in writing mode after adding text for continuous dialogue writing
+        // Stay in writing mode after adding text for continuous dialog writing
         showInputAreaWithFocus()
     }
     
@@ -149,6 +173,9 @@ final class DialogViewModel: ObservableObject {
         // Create new speakerText with updated text but same ID and speaker
         let updatedText = SpeakerText(id: id, speaker: newSpeaker, text: newText)
         textlines[index] = updatedText
+        
+        // Update the selected speaker to match the change
+        selectedSpeaker = newSpeaker
     }
     
     func changeSpeaker(withId id: UUID, to newSpeaker: Speaker) {
@@ -164,10 +191,22 @@ final class DialogViewModel: ObservableObject {
     
     func renameSpeaker(_ speaker: Speaker, to name: String) {
         let trimmedName = name.trimmingCharacters(in: .whitespacesAndNewlines)
-        customSpeakerNames[speaker] = trimmedName.isEmpty ? nil : trimmedName
+        let oldName = customSpeakerNames[speaker]
+        let newName = trimmedName.isEmpty ? nil : trimmedName
+        
+        // Record undo action
+        undoManager.recordAction(.renameSpeaker(speaker, oldName, newName))
+        
+        customSpeakerNames[speaker] = newName
     }
     
     func deleteText(withId id: UUID) {
+        guard let index = textlines.firstIndex(where: { $0.id == id }) else { return }
+        let speakerText = textlines[index]
+        
+        // Record undo action
+        undoManager.recordAction(.deleteText(speakerText, index))
+        
         textlines.removeAll { $0.id == id }
         flaggedTextIds.remove(id)
     }
@@ -175,12 +214,21 @@ final class DialogViewModel: ObservableObject {
     func deleteText(at offsets: IndexSet) {
         for offset in offsets {
             let speakerText = textlines[offset]
+            
+            // Record undo action for each deleted text
+            undoManager.recordAction(.deleteText(speakerText, offset))
+            
             flaggedTextIds.remove(speakerText.id)
         }
         textlines.remove(atOffsets: offsets)
     }
     
     func toggleFlag(for textId: UUID) {
+        let wasAdd = !flaggedTextIds.contains(textId)
+        
+        // Record undo action
+        undoManager.recordAction(.toggleFlag(textId, wasAdd))
+        
         if flaggedTextIds.contains(textId) {
             flaggedTextIds.remove(textId)
         } else {
@@ -197,7 +245,7 @@ final class DialogViewModel: ObservableObject {
     }
     
     // MARK: - Session Management
-    func loadSession(_ session: DialogueSession) {
+    func loadSession(_ session: DialogSession) {
         textlines = session.textlines
         customSpeakerNames = session.customSpeakerNames
         flaggedTextIds = session.flaggedTextIds
@@ -250,7 +298,7 @@ final class DialogViewModel: ObservableObject {
             // Add centered speaker name in caps
             rtfContent += "\\par\\par\\qc\\b \(speakerName)\\b0\\par"
             
-            // Break long lines and add dialogue text (centered)
+            // Break long lines and add dialog text (centered)
             let wrappedText = wrapText(escapeRTFText(speakerText.text), maxLength: 35)
             rtfContent += "\\qc \(wrappedText)\\par"
         }
@@ -339,7 +387,7 @@ final class DialogViewModel: ObservableObject {
             <Paragraph Type="Character">
             <Text>\(speakerName)</Text>
             </Paragraph>
-            <Paragraph Type="Dialogue">
+                            <Paragraph Type="Dialog">
             <Text>\(speakerText.text)</Text>
             </Paragraph>
             """
@@ -389,5 +437,56 @@ final class DialogViewModel: ObservableObject {
         let cleanTitle = title.components(separatedBy: CharacterSet.alphanumerics.inverted).joined(separator: "")
         
         return cleanTitle.isEmpty ? "NewDialog" : cleanTitle
+    }
+    
+    // MARK: - Title Management
+    func updateTitle(_ newTitle: String) {
+        let trimmedTitle = newTitle.trimmingCharacters(in: .whitespacesAndNewlines)
+        currentTitle = trimmedTitle.isEmpty ? "New Dialogue" : trimmedTitle
+    }
+    
+    // MARK: - Undo Methods
+    func undoAddText(_ speakerText: SpeakerText) {
+        textlines.removeAll { $0.id == speakerText.id }
+        flaggedTextIds.remove(speakerText.id)
+    }
+    
+    func undoDeleteText(_ speakerText: SpeakerText, at originalIndex: Int) {
+        // Insert at the original position if it's valid, otherwise append
+        if originalIndex >= 0 && originalIndex <= textlines.count {
+            textlines.insert(speakerText, at: originalIndex)
+        } else {
+            textlines.append(speakerText)
+        }
+    }
+    
+    func undoEditText(id: UUID, oldText: String, oldSpeaker: Speaker) {
+        guard let index = textlines.firstIndex(where: { $0.id == id }) else { return }
+        let updatedText = SpeakerText(id: id, speaker: oldSpeaker, text: oldText)
+        textlines[index] = updatedText
+    }
+    
+    func undoToggleFlag(textId: UUID, wasAdd: Bool) {
+        if wasAdd {
+            flaggedTextIds.remove(textId)
+        } else {
+            flaggedTextIds.insert(textId)
+        }
+    }
+    
+    func undoRenameSpeaker(_ speaker: Speaker, oldName: String?) {
+        customSpeakerNames[speaker] = oldName
+    }
+    
+    func canUndo() -> Bool {
+        return undoManager.canUndo
+    }
+    
+    func getLastActionDescription() -> String {
+        return undoManager.lastActionDescription
+    }
+    
+    func performUndo() {
+        undoManager.performUndo(dialogViewModel: self)
     }
 } 

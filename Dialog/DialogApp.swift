@@ -9,9 +9,27 @@ import SwiftUI
 
 @main
 struct DialogApp: App {
+    @StateObject private var settingsManager = SettingsManager.shared
+    @StateObject private var localizationManager = LocalizationManager.shared
+    
     var body: some Scene {
         WindowGroup {
             MainMenuView()
+                .environmentObject(localizationManager)
+                .id(localizationManager.currentLanguage) // This forces a complete refresh when language changes
         }
+    }
+}
+
+// MARK: - Empty DialogSession
+extension DialogSession {
+    init() {
+        self.id = UUID()
+        self.createdAt = Date()
+        self.lastModified = Date()
+        self.title = "New Dialog"
+        self.textlines = []
+        self.customSpeakerNames = [:]
+        self.flaggedTextIds = []
     }
 }

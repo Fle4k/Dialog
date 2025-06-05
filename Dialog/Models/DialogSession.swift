@@ -1,7 +1,9 @@
 import Foundation
+import SwiftUI
+import UniformTypeIdentifiers
 
-// MARK: - Dialogue Session Model
-struct DialogueSession: Identifiable, Codable {
+// MARK: - Dialog Session Model
+struct DialogSession: Identifiable, Codable, FileDocument {
     var id = UUID()
     let createdAt: Date
     var lastModified: Date
@@ -10,6 +12,22 @@ struct DialogueSession: Identifiable, Codable {
     var customSpeakerNames: [Speaker: String]
     var flaggedTextIds: Set<UUID>
     
+    // MARK: - FileDocument Conformance
+    static var readableContentTypes: [UTType] { [.dialogDocument] }
+    
+    init(configuration: ReadConfiguration) throws {
+        guard let data = configuration.file.regularFileContents else {
+            throw CocoaError(.fileReadCorruptFile)
+        }
+        self = try JSONDecoder().decode(DialogSession.self, from: data)
+    }
+    
+    func fileWrapper(configuration: WriteConfiguration) throws -> FileWrapper {
+        let data = try JSONEncoder().encode(self)
+        return FileWrapper(regularFileWithContents: data)
+    }
+    
+    // MARK: - Existing Initializers
     @MainActor
     init(from viewModel: DialogViewModel) {
         self.createdAt = Date()
@@ -17,18 +35,24 @@ struct DialogueSession: Identifiable, Codable {
         self.textlines = viewModel.textlines
         self.customSpeakerNames = viewModel.customSpeakerNames
         self.flaggedTextIds = viewModel.flaggedTextIds
-        self.title = Self.generateTitle(from: self.textlines)
+        
+        // Use the viewModel's currentTitle if it's set, otherwise generate one
+        if !viewModel.currentTitle.isEmpty {
+            self.title = viewModel.currentTitle
+        } else {
+            self.title = Self.generateTitle(from: self.textlines)
+        }
     }
     
     static func generateTitle(from textlines: [SpeakerText]) -> String {
-        guard !textlines.isEmpty else { return "New Dialogue" }
+        guard !textlines.isEmpty else { return "New Dialog" }
         
         let firstText = textlines[0].text
         let words = firstText.components(separatedBy: .whitespacesAndNewlines)
         let titleWords = Array(words.prefix(3))
         
         if titleWords.isEmpty {
-            return "New Dialogue"
+            return "New Dialog"
         }
         
         return titleWords.joined(separator: " ") + (words.count > 3 ? "..." : "")
@@ -43,7 +67,12 @@ struct DialogueSession: Identifiable, Codable {
     }
     
     // MARK: - Content Comparison
-    func hasContentChanges(comparedTo other: DialogueSession) -> Bool {
+    func hasContentChanges(comparedTo other: DialogSession) -> Bool {
+        // Check if title has changed
+        if title != other.title {
+            return true
+        }
+        
         // Check if textlines have changed
         if textlines.count != other.textlines.count {
             return true
@@ -74,33 +103,9 @@ struct DialogueSession: Identifiable, Codable {
     }
 }
 
-// MARK: - SpeakerText Codable Extension
-extension SpeakerText: Codable {
-    enum CodingKeys: String, CodingKey {
-        case id, speaker, text
+// MARK: - Custom UTType
+extension UTType {
+    static var dialogDocument: UTType {
+        UTType(importedAs: "com.dialog.dialog")
     }
-    
-    init(from decoder: Decoder) throws {
-        let container = try decoder.container(keyedBy: CodingKeys.self)
-        
-        // Handle backward compatibility - if no ID is present, generate one
-        if let id = try? container.decode(UUID.self, forKey: .id) {
-            self.id = id
-        } else {
-            self.id = UUID()
-        }
-        
-        self.speaker = try container.decode(Speaker.self, forKey: .speaker)
-        self.text = try container.decode(String.self, forKey: .text)
-    }
-    
-    func encode(to encoder: Encoder) throws {
-        var container = encoder.container(keyedBy: CodingKeys.self)
-        try container.encode(id, forKey: .id)
-        try container.encode(speaker, forKey: .speaker)
-        try container.encode(text, forKey: .text)
-    }
-}
-
-// MARK: - Speaker Codable Extension
-extension Speaker: Codable {} 
+} 
