@@ -3,6 +3,7 @@ import SwiftUI
 // MARK: - Settings View
 struct SettingsView: View {
     @StateObject private var settingsManager = SettingsManager.shared
+    @StateObject private var localizationManager = LocalizationManager.shared
     @Environment(\.dismiss) private var dismiss
     @Environment(\.openURL) private var openURL
     
@@ -33,6 +34,16 @@ struct SettingsView: View {
                 centerLinesRow
             } header: {
                 Text("Display")
+                    .font(.footnote)
+                    .fontWeight(.medium)
+                    .foregroundColor(.secondary)
+            }
+            
+            // Language Section
+            Section {
+                languageRow
+            } header: {
+                Text("Language")
                     .font(.footnote)
                     .fontWeight(.medium)
                     .foregroundColor(.secondary)
@@ -75,7 +86,7 @@ struct SettingsView: View {
                     .font(.body)
                     .fontWeight(.medium)
                 
-                Text("Display all speakers centered instead of left/right")
+                Text("Display all characters centered instead of left/right".localized)
                     .font(.caption)
                     .foregroundColor(.secondary)
             }
@@ -88,6 +99,52 @@ struct SettingsView: View {
                 .onChange(of: settingsManager.centerLinesEnabled) { _, newValue in
                     settingsManager.updateCenterLines(newValue)
                 }
+        }
+        .padding(.vertical, 4)
+    }
+    
+    // MARK: - Language Row
+    private var languageRow: some View {
+        HStack(spacing: 12) {
+            VStack(alignment: .leading, spacing: 2) {
+                Text("Language".localized)
+                    .font(.body)
+                    .fontWeight(.medium)
+                
+                Text("Choose your preferred language".localized)
+                    .font(.caption)
+                    .foregroundColor(.secondary)
+            }
+            
+            Spacer()
+            
+            Menu {
+                ForEach(localizationManager.supportedLanguages.sorted(by: { $0.value < $1.value }), id: \.key) { language, displayName in
+                    Button(action: {
+                        withAnimation(.easeInOut(duration: 0.3)) {
+                            localizationManager.currentLanguage = language
+                        }
+                    }) {
+                        HStack {
+                            Text(displayName)
+                            if localizationManager.currentLanguage == language {
+                                Spacer()
+                                Image(systemName: "checkmark")
+                            }
+                        }
+                    }
+                }
+            } label: {
+                HStack(spacing: 4) {
+                    Text(localizationManager.supportedLanguages[localizationManager.currentLanguage] ?? "English")
+                        .font(.body)
+                        .foregroundColor(.primary)
+                    
+                    Image(systemName: "chevron.up.chevron.down")
+                        .font(.caption2)
+                        .foregroundColor(.secondary)
+                }
+            }
         }
         .padding(.vertical, 4)
     }

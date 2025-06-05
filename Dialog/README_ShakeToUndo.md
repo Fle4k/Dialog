@@ -17,7 +17,7 @@ The Dialog app now includes a comprehensive shake-to-undo system that allows use
 - **Delete Text**: Undo deleting dialog text
 - **Edit Text**: Undo text modifications
 - **Toggle Flag**: Undo flagging/unflagging dialog
-- **Rename Speaker**: Undo speaker name changes
+- **Rename Character**: Undo character name changes
 
 ### In Main Menu:
 - **Delete Session**: Undo session deletion

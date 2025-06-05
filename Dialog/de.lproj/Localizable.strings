@@ -4,7 +4,9 @@
 "Done" = "Fertig";
 "Enter dialogue..." = "Text eingeben...";
 "Add Dialogue" = "Neuer Dialog";
-"Rename Speaker" = "Sprecher umbenennen";
+"Rename Speaker" = "Figur umbenennen";
 "Save" = "Speichern";
-"Cancel" = "Abbrechen"; 
-"Lines" = "Zeilen"; 
+"Cancel" = "Abbrechen";
+"Lines" = "Zeilen";
+"Choose your preferred language" = "Wähle deine bevorzugte Sprache";
+"Display all characters centered instead of left/right" = "Alle Figuren zentriert statt links/rechts anzeigen"; 

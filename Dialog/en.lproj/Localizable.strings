@@ -4,7 +4,9 @@
 "Done" = "Done";
 "Enter dialogue..." = "Enter dialog...";
 "Add Dialogue" = "New Dialog";
-"Rename Speaker" = "Rename Speaker";
+"Rename Speaker" = "Rename Character";
 "Save" = "Save";
-"Cancel" = "Cancel"; 
-"Lines" = "lines"; 
+"Cancel" = "Cancel";
+"Lines" = "lines";
+"Choose your preferred language" = "Choose your preferred language";
+"Display all characters centered instead of left/right" = "Display all characters centered instead of left/right"; 
