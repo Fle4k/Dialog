@@ -27,4 +27,12 @@
 "Speaker name" = "Hahmon nimi";
 "Enter a custom name for this speaker" = "Anna nimi tälle hahmolle";
 "Edit dialog..." = "Muokkaa dialogia...";
-"Enter dialog..." = "Kirjoita tekstiä..."; 
+"Enter dialog..." = "Kirjoita tekstiä...";
+"Recommended Apps" = "Suositellut sovellukset";
+"Apps that work great with this one" = "Sovellukset, jotka toimivat hyvin tämän kanssa";
+"Export to Final Draft" = "Vie Final Draftiin";
+"Export as RTF" = "Vie RTF-muodossa";
+"Export as Text" = "Vie tekstinä";
+"New Dialog" = "Uusi dialogi";
+"New Dialogue" = "Uusi dialogi";
+"Recommended App" = "Suositeltu sovellus"; 

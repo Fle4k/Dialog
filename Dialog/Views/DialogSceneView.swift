@@ -117,21 +117,21 @@ struct DialogSceneView: View {
                         item: viewModel.exportToFDXURL(),
                         preview: SharePreview("Dialog.fdx", image: Image(systemName: "doc.text"))
                     ) {
-                        Label("Export to Final Draft", systemImage: "doc.text")
+                        Label("Export to Final Draft".localized, systemImage: "doc.text")
                     }
                     
                     ShareLink(
                         item: viewModel.exportToRTFURL(),
                         preview: SharePreview("Dialog.rtf", image: Image(systemName: "doc.richtext"))
                     ) {
-                        Label("Export as RTF", systemImage: "doc.richtext")
+                        Label("Export as RTF".localized, systemImage: "doc.richtext")
                     }
                     
                     ShareLink(
                         item: viewModel.exportToTextURL(),
                         preview: SharePreview("Dialog.txt", image: Image(systemName: "doc.plaintext"))
                     ) {
-                        Label("Export as Text", systemImage: "doc.plaintext")
+                        Label("Export as Text".localized, systemImage: "doc.plaintext")
                     }
                 } label: {
                     Group {

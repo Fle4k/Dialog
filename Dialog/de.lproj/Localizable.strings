@@ -9,7 +9,7 @@
 "Cancel" = "Abbrechen"; 
 "Lines" = "Zeilen"; 
 "Choose your preferred language" = "Wähle deine bevorzugte Sprache";
-"Display all characters centered instead of left/right" = "Alle Figuren zentriert statt links/rechts anzeigen";
+"Display all characters centered instead of left/right" = "Figuren und ihre Zeilen werden zentriert";
 "Display" = "Anzeige";
 "About" = "Über";
 "Center Dialog Lines" = "Dialog-Zeilen zentrieren";
@@ -20,7 +20,7 @@
 "Sort Alphabetically" = "Alphabetisch sortieren";
 "Sort by Date Edited" = "Nach Bearbeitungsdatum sortieren";
 "Sort by Date Added" = "Nach Erstellungsdatum sortieren";
-"Rename Dialog" = "Dialog umbenennen";
+"Rename Dialog" = "Dialogszene umbenennen";
 "Dialog name" = "Dialog-Name";
 "Save" = "Speichern";
 "Rename Speaker" = "Figur umbenennen";
@@ -30,3 +30,9 @@
 "Enter dialog..." = "Text eingeben...";
 "Recommended Apps" = "Empfohlene Apps";
 "Apps that work great with this one" = "Apps, die gut mit dieser funktionieren";
+"Export to Final Draft" = "Als Final Draft exportieren";
+"Export as RTF" = "Als RTF exportieren";
+"Export as Text" = "Als Text exportieren";
+"New Dialog" = "Neuer Dialog";
+"New Dialogue" = "Neuer Dialog";
+"Recommended App" = "Empfohlene App";

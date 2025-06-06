@@ -64,10 +64,8 @@ struct SettingsView: View {
 //                    .foregroundColor(.secondary)
 //            }
             
-            // About Section
+            // Logo and Version Section
             Section {
-                appVersionRow
-                
                 // Logo
                 HStack {
                     Spacer()
@@ -83,11 +81,9 @@ struct SettingsView: View {
                         }
                     Spacer()
                 }
-            } header: {
-                Text("About".localized)
-                    .font(.footnote)
-                    .fontWeight(.medium)
-                    .foregroundColor(.secondary)
+                .listRowBackground(Color.clear)
+                
+                appVersionRow
             }
         }
         .listStyle(.insetGrouped)
@@ -166,20 +162,18 @@ struct SettingsView: View {
     
     // MARK: - App Version Row
     private var appVersionRow: some View {
-        HStack(spacing: 12) {
-            VStack(alignment: .leading, spacing: 2) {
-                Text("Version".localized)
-                    .font(.body)
-                    .fontWeight(.medium)
-                
-                Text("0.6.0 Beta")
-                    .font(.caption)
-                    .foregroundColor(.secondary)
-            }
+        VStack(spacing: 2) {
+            Text("Version".localized)
+                .font(.caption)
+                .fontWeight(.medium)
             
-            Spacer()
+            Text("0.6.0 Beta")
+                .font(.caption)
+                .foregroundColor(.secondary)
         }
+        .frame(maxWidth: .infinity)
         .padding(.vertical, 4)
+        .listRowBackground(Color.clear)
     }
 }
 

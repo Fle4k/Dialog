@@ -204,8 +204,8 @@ struct SessionRowView: View {
                     showingRenameAlert = true
                 }
         )
-        .alert("Rename Speaker".localized, isPresented: $showingRenameAlert) {
-            TextField("Dialogue".localized, text: $newTitle)
+        .alert("Rename Dialog".localized, isPresented: $showingRenameAlert) {
+            TextField("Dialog name".localized, text: $newTitle)
             Button("Cancel".localized, role: .cancel) { }
             Button("Save".localized) {
                 let trimmedTitle = newTitle.trimmingCharacters(in: .whitespacesAndNewlines)

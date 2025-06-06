@@ -27,4 +27,12 @@
 "Speaker name" = "Nom du personnage";
 "Enter a custom name for this speaker" = "Entrer un nom pour ce personnage";
 "Edit dialog..." = "Modifier le dialogue...";
-"Enter dialog..." = "Entrer du texte..."; 
+"Enter dialog..." = "Entrer du texte...";
+"Recommended Apps" = "Applications recommandées";
+"Apps that work great with this one" = "Applications qui fonctionnent bien avec celle-ci";
+"Export to Final Draft" = "Exporter vers Final Draft";
+"Export as RTF" = "Exporter en RTF";
+"Export as Text" = "Exporter en texte";
+"New Dialog" = "Nouveau dialogue";
+"New Dialogue" = "Nouveau dialogue";
+"Recommended App" = "Application recommandée"; 

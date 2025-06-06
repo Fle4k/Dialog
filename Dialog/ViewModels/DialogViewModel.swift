@@ -422,27 +422,27 @@ final class DialogViewModel: ObservableObject {
     }
     
     private func generateTitle() -> String {
-        guard !textlines.isEmpty else { return "NewDialog" }
+        guard !textlines.isEmpty else { return "New Dialog".localized }
         
         let firstText = textlines[0].text
         let words = firstText.components(separatedBy: .whitespacesAndNewlines)
         let titleWords = Array(words.prefix(3))
         
         if titleWords.isEmpty {
-            return "NewDialog"
+            return "New Dialog".localized
         }
         
         // Clean title for filename (remove special characters)
         let title = titleWords.joined(separator: " ")
         let cleanTitle = title.components(separatedBy: CharacterSet.alphanumerics.inverted).joined(separator: "")
         
-        return cleanTitle.isEmpty ? "NewDialog" : cleanTitle
+        return cleanTitle.isEmpty ? "New Dialog".localized : cleanTitle
     }
     
     // MARK: - Title Management
     func updateTitle(_ newTitle: String) {
         let trimmedTitle = newTitle.trimmingCharacters(in: .whitespacesAndNewlines)
-        currentTitle = trimmedTitle.isEmpty ? "New Dialogue" : trimmedTitle
+        currentTitle = trimmedTitle.isEmpty ? "New Dialogue".localized : trimmedTitle
     }
     
     // MARK: - Undo Methods

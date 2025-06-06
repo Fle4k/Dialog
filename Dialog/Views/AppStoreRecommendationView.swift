@@ -67,8 +67,9 @@ struct CharacterCreatorRecommendationView: View {
             Image("PersonIcon_Light_rounded")
                 .resizable()
                 .aspectRatio(contentMode: .fit)
-                .frame(width: 44, height: 44)
-                .clipShape(RoundedRectangle(cornerRadius: 10))
+                .frame(width: 60, height: 60)
+                .clipShape(RoundedRectangle(cornerRadius: 13))
+                
             
             // App Info
             VStack(alignment: .leading, spacing: 2) {
@@ -93,7 +94,7 @@ struct CharacterCreatorRecommendationView: View {
             .foregroundColor(.white)
             .padding(.horizontal, 12)
             .padding(.vertical, 4)
-            .background(Color.blue)
+            .background(Color.black)
             .clipShape(Capsule())
         }
         .padding(.vertical, 4)
