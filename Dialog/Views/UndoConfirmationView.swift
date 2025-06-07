@@ -8,47 +8,25 @@ struct UndoConfirmationView: View {
     let onDismiss: () -> Void
     
     var body: some View {
-        VStack(spacing: 16) {
-            HStack {
-                Image(systemName: "arrow.uturn.backward.circle.fill")
-                    .font(.title2)
-                    .foregroundColor(.white)
-                
-                VStack(alignment: .leading, spacing: 2) {
-                    Text("Undo")
-                        .font(.headline)
-                        .fontWeight(.semibold)
-                        .foregroundColor(.white)
-                    
-                    Text(actionDescription)
-                        .font(.caption)
-                        .foregroundColor(.white.opacity(0.8))
-                }
-                
-                Spacer()
-                
-                Button("UNDO") {
-                    onUndo()
-                }
-                .font(.headline)
-                .fontWeight(.bold)
-                .foregroundColor(.white)
-                .padding(.horizontal, 16)
-                .padding(.vertical, 8)
-                .background(Color.white.opacity(0.2))
-                .cornerRadius(8)
+        HStack {
+            Spacer()
+            
+            Button("Undo") {
+                onUndo()
             }
+            .font(.system(.body, design: .default, weight: .medium))
+            .foregroundColor(.white)
+            .padding(.horizontal, 16)
+            .padding(.vertical, 8)
+            .background(Color.black)
+            .cornerRadius(8)
+            
+            Spacer()
         }
-        .padding()
-        .background(Color.primary)
-        .cornerRadius(12)
-        .shadow(radius: 8)
-        .onTapGesture {
-            onDismiss()
-        }
+        .padding(.horizontal)
         .onAppear {
             // Add haptic feedback when showing undo option
-            let impactFeedback = UIImpactFeedbackGenerator(style: .medium)
+            let impactFeedback = UIImpactFeedbackGenerator(style: .light)
             impactFeedback.impactOccurred()
         }
     }
