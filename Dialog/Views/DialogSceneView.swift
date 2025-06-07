@@ -114,7 +114,8 @@ struct GroupedElementRowView: View {
                 Text(element.content)
                     .font(.body)
                     .italic(element.type == .action)
-                    .multilineTextAlignment(.center)
+                    .multilineTextAlignment(element.type == .action ? .leading : .center)
+                    .frame(maxWidth: .infinity, alignment: element.type == .action ? .leading : .center)
             }
         }
         .frame(maxWidth: .infinity)
@@ -588,27 +589,19 @@ struct ScreenplayElementRowView: View {
     }
     
     private var centeredOrActionView: some View {
-        VStack(alignment: element.type == .action ? .leading : .center, spacing: 4) {
+        VStack(alignment: element.type == .action ? .leading : .center, spacing: element.type == .parenthetical ? 1 : 4) {
             if element.type != .action {
                 elementTypeLabel
             }
             
-            // Special handling for parentheticals to wrap in parentheses
-            if element.type == .parenthetical {
-                Text("(\(element.content))")
-                    .font(elementFont)
-                    .fontWeight(elementFontWeight)
-                    .italic()
-                    .foregroundColor(Color.secondary)
-                    .multilineTextAlignment(.center)
-                    .frame(maxWidth: .infinity, alignment: .center)
-            } else {
-                Text(element.content)
-                    .font(elementFont)
-                    .fontWeight(elementFontWeight)
-                    .multilineTextAlignment(element.type == .action ? .leading : .center)
-                    .frame(maxWidth: .infinity, alignment: element.type == .action ? .leading : .center)
-            }
+            // Use the same format as normal view, just centered
+            Text(element.content)
+                .font(elementFont)
+                .fontWeight(elementFontWeight)
+                .italic(element.type == .parenthetical)
+                .foregroundColor(element.type == .parenthetical ? Color.secondary : Color.primary)
+                .multilineTextAlignment(element.type == .action ? .leading : .center)
+                .frame(maxWidth: .infinity, alignment: element.type == .action ? .leading : .center)
         }
     }
     
@@ -616,20 +609,13 @@ struct ScreenplayElementRowView: View {
         VStack(alignment: .leading, spacing: element.type == .parenthetical ? 1 : 4) {
             elementTypeLabel
             
-            // Special handling for parentheticals - align left like speaker A
-            if element.type == .parenthetical {
-                Text("(\(element.content))")
-                    .font(elementFont)
-                    .fontWeight(elementFontWeight)
-                    .italic()
-                    .foregroundColor(Color.secondary)
-                    .multilineTextAlignment(.leading)
-                    .frame(maxWidth: .infinity, alignment: .leading)
-            } else {
-                Text(element.content)
-                    .font(elementFont)
-                    .fontWeight(elementFontWeight)
-            }
+            // Same format as normal view
+            Text(element.content)
+                .font(elementFont)
+                .fontWeight(elementFontWeight)
+                .italic(element.type == .parenthetical)
+                .foregroundColor(element.type == .parenthetical ? Color.secondary : Color.primary)
+                .multilineTextAlignment(.leading)
         }
     }
     
@@ -637,21 +623,13 @@ struct ScreenplayElementRowView: View {
         VStack(alignment: .trailing, spacing: element.type == .parenthetical ? 1 : 4) {
             elementTypeLabel
             
-            // Special handling for parentheticals - align right like speaker B
-            if element.type == .parenthetical {
-                Text("(\(element.content))")
-                    .font(elementFont)
-                    .fontWeight(elementFontWeight)
-                    .italic()
-                    .foregroundColor(Color.secondary)
-                    .multilineTextAlignment(.trailing)
-                    .frame(maxWidth: .infinity, alignment: .trailing)
-            } else {
-                Text(element.content)
-                    .font(elementFont)
-                    .fontWeight(elementFontWeight)
-                    .multilineTextAlignment(.trailing)
-            }
+            // Same format as normal view
+            Text(element.content)
+                .font(elementFont)
+                .fontWeight(elementFontWeight)
+                .italic(element.type == .parenthetical)
+                .foregroundColor(element.type == .parenthetical ? Color.secondary : Color.primary)
+                .multilineTextAlignment(.trailing)
         }
     }
     
@@ -659,16 +637,16 @@ struct ScreenplayElementRowView: View {
     private var elementTypeLabel: some View {
         switch element.type {
         case .dialogue:
-            // Show speaker name for dialogue using the same smart logic
-            if shouldShowSpeakerName, let speaker = element.speaker {
+            // Always show speaker name for dialogue in center mode (like normal view)
+            if let speaker = element.speaker {
                 Text(speaker.displayName(customNames: customSpeakerNames))
                     .font(.headline)
                     .fontWeight(.black)
             }
             
         case .parenthetical:
-            // Show speaker name for parentheticals using the same smart logic
-            if shouldShowSpeakerName, let speaker = element.speaker {
+            // Always show speaker name for parentheticals in center mode (like normal view)
+            if let speaker = element.speaker {
                 Text(speaker.displayName(customNames: customSpeakerNames))
                     .font(.headline)
                     .fontWeight(.black)
