@@ -415,28 +415,36 @@ final class DialogViewModel: ObservableObject {
     private func generateFilename(suffix: String) -> String {
         let title = generateTitle()
         let dateFormatter = DateFormatter()
-        dateFormatter.dateFormat = "ddMMyyyy"
+        dateFormatter.dateFormat = "yyyyMMdd"
         let dateString = dateFormatter.string(from: Date())
         
         return "\(title)_\(dateString).\(suffix)"
     }
     
     private func generateTitle() -> String {
-        guard !textlines.isEmpty else { return "New Dialog".localized }
+        // Use the current title if it exists and is not empty
+        if !currentTitle.isEmpty {
+            // Clean title for filename (remove special characters)
+            let cleanTitle = currentTitle.components(separatedBy: CharacterSet.alphanumerics.inverted).joined(separator: "")
+            return cleanTitle.isEmpty ? "NewDialog" : cleanTitle
+        }
+        
+        // Fallback to generating from first text if no title is set
+        guard !textlines.isEmpty else { return "NewDialog" }
         
         let firstText = textlines[0].text
         let words = firstText.components(separatedBy: .whitespacesAndNewlines)
         let titleWords = Array(words.prefix(3))
         
         if titleWords.isEmpty {
-            return "New Dialog".localized
+            return "NewDialog"
         }
         
         // Clean title for filename (remove special characters)
         let title = titleWords.joined(separator: " ")
         let cleanTitle = title.components(separatedBy: CharacterSet.alphanumerics.inverted).joined(separator: "")
         
-        return cleanTitle.isEmpty ? "New Dialog".localized : cleanTitle
+        return cleanTitle.isEmpty ? "NewDialog" : cleanTitle
     }
     
     // MARK: - Title Management
