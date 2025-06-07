@@ -1,0 +1,40 @@
+{
+  "source": "/Users/fle4k/Projekte/Swift/Dialog/Dialog/Views/AppStoreRecommendationView.swift",
+  "tables": {
+    "Localizable": [
+      {
+        "comment": "",
+        "key": "GET",
+        "location": {
+          "startingColumn": 20,
+          "startingLine": 38
+        }
+      },
+      {
+        "comment": "",
+        "key": "GET",
+        "location": {
+          "startingColumn": 20,
+          "startingLine": 88
+        }
+      },
+      {
+        "comment": "",
+        "key": "Character Creator",
+        "location": {
+          "startingColumn": 22,
+          "startingLine": 76
+        }
+      },
+      {
+        "comment": "",
+        "key": "Curated, authentic German & British names.",
+        "location": {
+          "startingColumn": 22,
+          "startingLine": 80
+        }
+      }
+    ]
+  },
+  "version": 1
+}

@@ -29,6 +29,7 @@ extension DialogSession {
         self.lastModified = Date()
         self.title = "New Dialog"
         self.textlines = []
+        self.screenplayElements = []
         self.customSpeakerNames = [:]
         self.flaggedTextIds = []
     }

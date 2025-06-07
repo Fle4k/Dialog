@@ -9,7 +9,9 @@ final class DialogViewModel: ObservableObject {
     
     // MARK: - Data Properties
     @Published var textlines: [SpeakerText] = []
+    @Published var screenplayElements: [ScreenplayElement] = []
     @Published var selectedSpeaker: Speaker = .a
+    @Published var selectedElementType: ScreenplayElementType = .dialogue
     @Published var inputText: String = ""
     @Published var customSpeakerNames: [Speaker: String] = [:]
     @Published var flaggedTextIds: Set<UUID> = []
@@ -137,13 +139,18 @@ final class DialogViewModel: ObservableObject {
             let notificationFeedback = UINotificationFeedbackGenerator()
             notificationFeedback.notificationOccurred(.success)
         } else {
-            let speakerText = SpeakerText(speaker: selectedSpeaker, text: trimmedText)
+            // Add to new screenplay elements system
+            addScreenplayElement()
             
-            // Record undo action
-            undoManager.recordAction(.addText(speakerText))
-            
-            textlines.append(speakerText)
-            selectedSpeaker.toggle()
+            // Only add to legacy textlines system for dialogue elements (for backwards compatibility)
+            if selectedElementType == .dialogue {
+                let speakerText = SpeakerText(speaker: selectedSpeaker, text: trimmedText)
+                
+                // Record undo action
+                undoManager.recordAction(.addText(speakerText))
+                
+                textlines.append(speakerText)
+            }
         }
         
         inputText = ""
@@ -151,6 +158,52 @@ final class DialogViewModel: ObservableObject {
         
         // Stay in writing mode after adding text for continuous dialog writing
         showInputAreaWithFocus()
+    }
+    
+    func addScreenplayElement() {
+        let trimmedText = inputText.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !trimmedText.isEmpty else { return }
+        
+        // Process content based on element type
+        var processedContent = trimmedText
+        
+        // For parentheticals, remove outer parentheses if they exist (we'll add them in display)
+        if selectedElementType == .parenthetical {
+            if trimmedText.hasPrefix("(") && trimmedText.hasSuffix(")") && trimmedText.count > 2 {
+                processedContent = String(trimmedText.dropFirst().dropLast())
+            }
+        }
+        
+        // Parentheticals need a speaker (they belong to someone)
+        let speaker = (selectedElementType == .parenthetical || selectedElementType.requiresSpeaker) ? selectedSpeaker : nil
+        let element = ScreenplayElement(type: selectedElementType, content: processedContent, speaker: speaker)
+        
+        screenplayElements.append(element)
+        
+        // Handle element type specific logic
+        handleElementTypeSpecificLogic()
+    }
+    
+    private func handleSpeakerToggle() {
+        // Legacy method - speaker toggling is now handled in handleElementTypeSpecificLogic()
+        selectedSpeaker.toggle()
+    }
+    
+    private func handleElementTypeSpecificLogic() {
+        switch selectedElementType {
+        case .dialogue:
+            // After dialogue, toggle to other speaker and stay in dialogue mode
+            selectedSpeaker.toggle()
+            
+        case .parenthetical:
+            // After parenthetical, return to dialogue for the SAME speaker (don't toggle)
+            selectedElementType = .dialogue
+            
+        case .action:
+            // After action, go back to normal dialogue flow with next speaker
+            selectedElementType = .dialogue
+            selectedSpeaker.toggle()
+        }
     }
     
     func handleNewlineInput() {
@@ -247,6 +300,7 @@ final class DialogViewModel: ObservableObject {
     // MARK: - Session Management
     func loadSession(_ session: DialogSession) {
         textlines = session.textlines
+        screenplayElements = session.screenplayElements
         customSpeakerNames = session.customSpeakerNames
         flaggedTextIds = session.flaggedTextIds
         // Reset input state
@@ -256,12 +310,14 @@ final class DialogViewModel: ObservableObject {
     
     // MARK: - Speaker Management
     func setNextSpeakerBasedOnLastText() {
-        if let lastText = textlines.last {
-            // Set the speaker to the opposite of the last text's speaker
-            selectedSpeaker = lastText.speaker == .a ? .b : .a
+        // Look for the last dialogue element to determine next speaker
+        if let lastDialogue = screenplayElements.last(where: { $0.type == .dialogue }),
+           let speaker = lastDialogue.speaker {
+            // Set the speaker to the opposite of the last dialogue's speaker
+            selectedSpeaker = speaker == .a ? .b : .a
         } else {
-            // If no texts exist, default to speaker A
-        selectedSpeaker = .a
+            // If no dialogue elements exist, default to speaker A
+            selectedSpeaker = .a
         }
     }
     
@@ -377,25 +433,58 @@ final class DialogViewModel: ObservableObject {
     }
     
     func exportToFDX() -> Data {
+        // Use new screenplay elements if available, otherwise fall back to legacy textlines
+        let elementsToExport = screenplayElements.isEmpty ? textlines.map { $0.toScreenplayElement() } : screenplayElements
+        
+        let escapedElements = elementsToExport.map { element in
+            let escapedContent = escapeXMLText(element.content)
+            
+                         switch element.type {
+             case .dialogue:
+                return """
+                <Paragraph Type="Dialogue">
+                <Text>\(escapedContent)</Text>
+                </Paragraph>
+                """
+                
+            case .parenthetical:
+                return """
+                <Paragraph Type="Parenthetical">
+                <Text>\(escapedContent)</Text>
+                </Paragraph>
+                """
+                
+            case .action:
+                return """
+                <Paragraph Type="Action">
+                <Text>\(escapedContent)</Text>
+                </Paragraph>
+                """
+            }
+        }.joined(separator: "\n")
+        
         let fdxContent = """
         <?xml version="1.0" encoding="UTF-8"?>
         <FinalDraft DocumentType="Script" Template="No" Version="1">
         <Content>
-        \(textlines.map { speakerText in
-            let speakerName = speakerText.speaker.displayName(customNames: customSpeakerNames)
-            return """
-            <Paragraph Type="Character">
-            <Text>\(speakerName)</Text>
-            </Paragraph>
-                            <Paragraph Type="Dialog">
-            <Text>\(speakerText.text)</Text>
-            </Paragraph>
-            """
-        }.joined(separator: "\n"))
+        \(escapedElements)
         </Content>
         </FinalDraft>
         """
         return fdxContent.data(using: .utf8) ?? Data()
+    }
+    
+    private func escapeXMLText(_ text: String) -> String {
+        var escaped = text
+        
+        // Escape XML special characters
+        escaped = escaped.replacingOccurrences(of: "&", with: "&amp;")
+        escaped = escaped.replacingOccurrences(of: "<", with: "&lt;")
+        escaped = escaped.replacingOccurrences(of: ">", with: "&gt;")
+        escaped = escaped.replacingOccurrences(of: "\"", with: "&quot;")
+        escaped = escaped.replacingOccurrences(of: "'", with: "&apos;")
+        
+        return escaped
     }
     
     func exportToFDXURL() -> URL {

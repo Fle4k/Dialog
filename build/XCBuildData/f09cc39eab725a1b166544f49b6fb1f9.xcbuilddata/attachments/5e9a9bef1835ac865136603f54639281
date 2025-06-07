@@ -1,0 +1,15 @@
+{
+  "" : {
+    "const-values" : "/Users/fle4k/Projekte/Swift/Dialog/build/Dialog.build/Release-iphoneos/DialogTests.build/Objects-normal/arm64/DialogTests-master.swiftconstvalues",
+    "dependencies" : "/Users/fle4k/Projekte/Swift/Dialog/build/Dialog.build/Release-iphoneos/DialogTests.build/Objects-normal/arm64/DialogTests-master.d",
+    "diagnostics" : "/Users/fle4k/Projekte/Swift/Dialog/build/Dialog.build/Release-iphoneos/DialogTests.build/Objects-normal/arm64/DialogTests-master.dia",
+    "emit-module-dependencies" : "/Users/fle4k/Projekte/Swift/Dialog/build/Dialog.build/Release-iphoneos/DialogTests.build/Objects-normal/arm64/DialogTests-master-emit-module.d",
+    "emit-module-diagnostics" : "/Users/fle4k/Projekte/Swift/Dialog/build/Dialog.build/Release-iphoneos/DialogTests.build/Objects-normal/arm64/DialogTests-master-emit-module.dia",
+    "swift-dependencies" : "/Users/fle4k/Projekte/Swift/Dialog/build/Dialog.build/Release-iphoneos/DialogTests.build/Objects-normal/arm64/DialogTests-master.swiftdeps"
+  },
+  "/Users/fle4k/Projekte/Swift/Dialog/DialogTests/DialogTests.swift" : {
+    "index-unit-output-path" : "/Dialog.build/Release-iphoneos/DialogTests.build/Objects-normal/arm64/DialogTests.o",
+    "llvm-bc" : "/Users/fle4k/Projekte/Swift/Dialog/build/Dialog.build/Release-iphoneos/DialogTests.build/Objects-normal/arm64/DialogTests.bc",
+    "object" : "/Users/fle4k/Projekte/Swift/Dialog/build/Dialog.build/Release-iphoneos/DialogTests.build/Objects-normal/arm64/DialogTests.o"
+  }
+}

@@ -1,0 +1,33 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+	<key>colors</key>
+	<array/>
+	<key>images</key>
+	<array>
+		<dict>
+			<key>catalogPath</key>
+			<string>/Users/fle4k/Projekte/Swift/Dialog/Dialog/Assets.xcassets</string>
+			<key>objcSymbol</key>
+			<string>ACImageNamePersonIconLightRounded</string>
+			<key>relativePath</key>
+			<string>./PersonIcon_Light_rounded.imageset</string>
+			<key>swiftSymbol</key>
+			<string>personIconLightRounded</string>
+		</dict>
+		<dict>
+			<key>catalogPath</key>
+			<string>/Users/fle4k/Projekte/Swift/Dialog/Dialog/Assets.xcassets</string>
+			<key>objcSymbol</key>
+			<string>ACImageNameMetameLogo</string>
+			<key>relativePath</key>
+			<string>./metame_Logo.imageset</string>
+			<key>swiftSymbol</key>
+			<string>metameLogo</string>
+		</dict>
+	</array>
+	<key>symbols</key>
+	<array/>
+</dict>
+</plist>

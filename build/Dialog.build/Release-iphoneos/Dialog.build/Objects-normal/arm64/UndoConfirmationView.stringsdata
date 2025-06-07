@@ -1,0 +1,16 @@
+{
+  "source": "/Users/fle4k/Projekte/Swift/Dialog/Dialog/Views/UndoConfirmationView.swift",
+  "tables": {
+    "Localizable": [
+      {
+        "comment": "",
+        "key": "Undo",
+        "location": {
+          "startingColumn": 20,
+          "startingLine": 14
+        }
+      }
+    ]
+  },
+  "version": 1
+}

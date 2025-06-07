@@ -1,0 +1,6 @@
+version: "Apple Swift version 6.0.3 (swiftlang-6.0.3.1.10 clang-1600.0.30.1)"
+options: "f5e8667552b889a3005c4cb4ed09eb9f3ecf7267b7b5375abad195628df887eb"
+build_start_time: [1749322833, 497512000]
+build_end_time: [1749322840, 967139000]
+inputs:
+  "/Users/fle4k/Projekte/Swift/Dialog/DialogTests/DialogTests.swift": !dirty [1749322815, 816965477]

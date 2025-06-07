@@ -1,59 +1,153 @@
 import SwiftUI
 import UIKit
 
-// MARK: - Scroll Coordinator
-@MainActor
-class ScrollCoordinator: ObservableObject {
-    func scrollToLastText(proxy: ScrollViewProxy, textlines: [SpeakerText]) {
-        guard let lastText = textlines.last else { return }
+// Extension to help find the current text field for cursor positioning
+extension UIResponder {
+    static var currentFirstResponder: UIResponder? {
+        var first: UIResponder?
         
-        withAnimation(.easeOut(duration: 0.5)) {
-            proxy.scrollTo(lastText.id, anchor: .center)
+        func findFirstResponder(in view: UIView) {
+            for subview in view.subviews {
+                if subview.isFirstResponder {
+                    first = subview
+                    return
+                }
+                findFirstResponder(in: subview)
+            }
         }
-    }
-    
-    func scrollToEditingText(proxy: ScrollViewProxy, editingId: UUID?) {
-        guard let editingId = editingId else { return }
         
-        withAnimation(.easeOut(duration: 0.5)) {
-            proxy.scrollTo(editingId, anchor: .center)
+        for window in UIApplication.shared.connectedScenes
+            .compactMap({ $0 as? UIWindowScene })
+            .flatMap({ $0.windows }) {
+            findFirstResponder(in: window)
+            if first != nil {
+                break
+            }
         }
+        
+        return first
     }
+}
+
+// MARK: - Grouped Element Model
+struct GroupedElement: Identifiable {
+    let id: UUID
+    let speaker: Speaker?
+    let elements: [ScreenplayElement]
+}
+
+// MARK: - Grouped Element Row View
+struct GroupedElementRowView: View {
+    let groupedElement: GroupedElement
+    let customSpeakerNames: [Speaker: String]
+    let centerLines: Bool
     
-    func handleTextCountChange(proxy: ScrollViewProxy, viewModel: DialogViewModel) {
-        if !viewModel.isEditingText {
-            scrollToLastText(proxy: proxy, textlines: viewModel.textlines)
-        }
-    }
-    
-    func handleInputAreaChange(proxy: ScrollViewProxy, viewModel: DialogViewModel, showInputArea: Bool) {
-        if showInputArea && !viewModel.textlines.isEmpty {
-            if viewModel.isEditingText {
-                scrollToEditingText(proxy: proxy, editingId: viewModel.editingTextId)
+    var body: some View {
+        if centerLines || groupedElement.speaker == nil {
+            // Center aligned for actions or when center mode is enabled
+            centeredView
+        } else {
+            // Speaker aligned view
+            if groupedElement.speaker == .a {
+                speakerAGroupView
             } else {
-                DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) {
-                    self.scrollToLastText(proxy: proxy, textlines: viewModel.textlines)
+                speakerBGroupView
+            }
+        }
+    }
+    
+    private var speakerAGroupView: some View {
+        HStack {
+            VStack(alignment: .leading, spacing: 6) {
+                // Speaker name
+                Text(groupedElement.speaker?.displayName(customNames: customSpeakerNames) ?? "")
+                    .font(.headline)
+                    .fontWeight(.semibold)
+                
+                // All elements for this speaker
+                ForEach(groupedElement.elements) { element in
+                    if element.type == .parenthetical {
+                        Text("(\(element.content))")
+                            .font(.caption)
+                            .foregroundColor(.secondary)
+                            .italic()
+                    } else {
+                        Text(element.content)
+                            .font(.body)
+                    }
+                }
+            }
+            Spacer()
+        }
+    }
+    
+    private var speakerBGroupView: some View {
+        HStack {
+            Spacer()
+            VStack(alignment: .trailing, spacing: 6) {
+                // Speaker name
+                Text(groupedElement.speaker?.displayName(customNames: customSpeakerNames) ?? "")
+                    .font(.headline)
+                    .fontWeight(.semibold)
+                
+                // All elements for this speaker
+                ForEach(groupedElement.elements) { element in
+                    if element.type == .parenthetical {
+                        Text("(\(element.content))")
+                            .font(.caption)
+                            .foregroundColor(.secondary)
+                            .italic()
+                            .multilineTextAlignment(.trailing)
+                    } else {
+                        Text(element.content)
+                            .font(.body)
+                            .multilineTextAlignment(.trailing)
+                    }
                 }
             }
         }
     }
     
-    func handleEditingChange(proxy: ScrollViewProxy, editingId: UUID?) {
-        if editingId != nil {
-            scrollToEditingText(proxy: proxy, editingId: editingId)
+    private var centeredView: some View {
+        VStack(spacing: 6) {
+            ForEach(groupedElement.elements) { element in
+                Text(element.content)
+                    .font(.body)
+                    .italic(element.type == .action)
+                    .multilineTextAlignment(.center)
+            }
+        }
+        .frame(maxWidth: .infinity)
+    }
+}
+
+// MARK: - Scroll Coordinator
+@MainActor
+class ScrollCoordinator: ObservableObject {
+    func scrollToLastElement(proxy: ScrollViewProxy, elements: [ScreenplayElement]) {
+        guard let lastElement = elements.last else { return }
+        
+        withAnimation(.easeOut(duration: 0.5)) {
+            proxy.scrollTo(lastElement.id, anchor: .center)
+        }
+    }
+    
+    func handleElementCountChange(proxy: ScrollViewProxy, viewModel: DialogViewModel) {
+        scrollToLastElement(proxy: proxy, elements: viewModel.screenplayElements)
+    }
+    
+    func handleInputAreaChange(proxy: ScrollViewProxy, viewModel: DialogViewModel, showInputArea: Bool) {
+        if showInputArea && !viewModel.screenplayElements.isEmpty {
+            DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) {
+                self.scrollToLastElement(proxy: proxy, elements: viewModel.screenplayElements)
+            }
         }
     }
     
     func handleFocusChange(proxy: ScrollViewProxy, viewModel: DialogViewModel, focused: Bool) {
-        if focused && !viewModel.textlines.isEmpty {
-            if viewModel.isEditingText {
-                DispatchQueue.main.asyncAfter(deadline: .now() + 0.4) {
-                    self.scrollToEditingText(proxy: proxy, editingId: viewModel.editingTextId)
-                }
-            } else {
-                DispatchQueue.main.asyncAfter(deadline: .now() + 0.4) {
-                    self.scrollToLastText(proxy: proxy, textlines: viewModel.textlines)
-                }
+        if focused && !viewModel.screenplayElements.isEmpty {
+            DispatchQueue.main.asyncAfter(deadline: .now() + 0.4) {
+                self.scrollToLastElement(proxy: proxy, elements: viewModel.screenplayElements)
             }
         }
     }
@@ -189,7 +283,7 @@ struct DialogSceneView: View {
             }
         }
         .onDisappear {
-            if !viewModel.textlines.isEmpty {
+            if !viewModel.screenplayElements.isEmpty {
                 onSave?(viewModel)
             }
         }
@@ -198,73 +292,112 @@ struct DialogSceneView: View {
         }
     }
     
-    // MARK: - Textlines View
+        // MARK: - Screenplay Elements View
     private var textlinesView: some View {
         ScrollViewReader { proxy in
-            textlinesList
-                .onChange(of: viewModel.textlines.count) { _, _ in
-                    scrollCoordinator.handleTextCountChange(proxy: proxy, viewModel: viewModel)
+            screenplayElementsList
+                .onChange(of: viewModel.screenplayElements.count) { _, _ in
+                    scrollCoordinator.handleElementCountChange(proxy: proxy, viewModel: viewModel)
                 }
                 .onChange(of: viewModel.showInputArea) { _, newValue in
                     scrollCoordinator.handleInputAreaChange(proxy: proxy, viewModel: viewModel, showInputArea: newValue)
-                }
-                .onChange(of: viewModel.editingTextId) { _, editingId in
-                    scrollCoordinator.handleEditingChange(proxy: proxy, editingId: editingId)
                 }
                 .onChange(of: isInputFocused) { _, focused in
                     scrollCoordinator.handleFocusChange(proxy: proxy, viewModel: viewModel, focused: focused)
                 }
         }
     }
-    
-    private var textlinesList: some View {
+
+    private var screenplayElementsList: some View {
         List {
-            if !viewModel.textlines.isEmpty {
-                textlinesForEach
+            if !viewModel.screenplayElements.isEmpty {
+                screenplayElementsForEach
+            } else {
+                emptyStateView
             }
         }
         .listStyle(.plain)
         .contentMargins(.bottom, viewModel.showInputArea ? 60 : 0)
-        .contentMargins(.top, viewModel.isFullscreenMode ? 0 : (viewModel.isEditingText ? 20 : 0))
+        .contentMargins(.top, viewModel.isFullscreenMode ? 0 : 0)
         .onTapGesture {
             viewModel.handleViewTap()
         }
     }
     
-    private var textlinesForEach: some View {
-        ForEach(viewModel.textlines) { speakerText in
-            SpeakerTextRowView(
-                speakerText: speakerText,
-                speakerName: viewModel.getSpeakerName(for: speakerText.speaker),
-                isFlagged: viewModel.isTextFlagged(speakerText.id),
-                isBeingEdited: viewModel.editingTextId == speakerText.id,
+    private var emptyStateView: some View {
+        VStack {
+            // Completely empty state
+        }
+        .frame(maxWidth: .infinity, maxHeight: .infinity)
+        .listRowBackground(Color.clear)
+        .listRowSeparator(.hidden)
+    }
+
+    private var screenplayElementsForEach: some View {
+        ForEach(Array(getGroupedElements().enumerated()), id: \.element.id) { index, groupedElement in
+            GroupedElementRowView(
+                groupedElement: groupedElement,
+                customSpeakerNames: viewModel.customSpeakerNames,
                 centerLines: settingsManager.centerLinesEnabled
             )
             .listRowBackground(Color.clear)
             .listRowSeparator(.hidden)
             .listRowInsets(EdgeInsets(top: 8, leading: 16, bottom: 8, trailing: 16))
-            .swipeActions(edge: .trailing, allowsFullSwipe: true) {
-                Button("Delete", role: .destructive) {
-                    viewModel.deleteText(withId: speakerText.id)
-                }
-                .tint(.red)
-            }
-            .swipeActions(edge: .leading, allowsFullSwipe: true) {
-                Button {
-                    viewModel.toggleFlag(for: speakerText.id)
-                } label: {
-                    Image(systemName: "flag.fill")
-                }
-                .tint(.orange)
-            }
-            .simultaneousGesture(
-                LongPressGesture(minimumDuration: 0.5)
-                    .onEnded { _ in
-                        startEditingText(speakerText)
-                    }
-            )
-            .id(speakerText.id)
+            .id(groupedElement.id)
         }
+    }
+    
+    // MARK: - Helper Methods
+    private func getGroupedElements() -> [GroupedElement] {
+        var groupedElements: [GroupedElement] = []
+        var i = 0
+        
+        while i < viewModel.screenplayElements.count {
+            let element = viewModel.screenplayElements[i]
+            
+            // Check if this element should start a new group (speaker with potential parenthetical)
+            if (element.type == .dialogue || element.type == .parenthetical) && element.speaker != nil {
+                let speaker = element.speaker!
+                var elementsInGroup: [ScreenplayElement] = []
+                
+                // Add current element
+                elementsInGroup.append(element)
+                
+                // Look ahead for parentheticals from the same speaker
+                var j = i + 1
+                while j < viewModel.screenplayElements.count {
+                    let nextElement = viewModel.screenplayElements[j]
+                    if nextElement.type == .parenthetical && nextElement.speaker == speaker {
+                        elementsInGroup.append(nextElement)
+                        j += 1
+                    } else if nextElement.type == .dialogue && nextElement.speaker == speaker {
+                        elementsInGroup.append(nextElement)
+                        j += 1
+                    } else {
+                        break
+                    }
+                }
+                
+                // Create grouped element
+                groupedElements.append(GroupedElement(
+                    id: element.id,
+                    speaker: speaker,
+                    elements: elementsInGroup
+                ))
+                
+                i = j
+            } else {
+                // For actions or other standalone elements, create single-element groups
+                groupedElements.append(GroupedElement(
+                    id: element.id,
+                    speaker: nil,
+                    elements: [element]
+                ))
+                i += 1
+            }
+        }
+        
+        return groupedElements
     }
     
     // MARK: - Input Area View
@@ -273,14 +406,22 @@ struct DialogSceneView: View {
             Color(.label)
                 .frame(height: 1)
             
-            SpeakerSelectorView(
-                selectedSpeaker: $viewModel.selectedSpeaker, 
-                viewModel: viewModel,
-                isInputFocused: $isInputFocused,
-                isEditingMode: viewModel.isEditingText
+            ElementTypeSelectorView(
+                selectedElementType: $viewModel.selectedElementType,
+                viewModel: viewModel
             )
-            .padding(.horizontal)
             .padding(.top, 12)
+            
+            if viewModel.selectedElementType.requiresSpeaker {
+                SpeakerSelectorView(
+                    selectedSpeaker: $viewModel.selectedSpeaker, 
+                    viewModel: viewModel,
+                    isInputFocused: $isInputFocused,
+                    isEditingMode: viewModel.isEditingText
+                )
+                .padding(.horizontal)
+                .padding(.top, 8)
+            }
             
             HStack {
                             TextInputView(
@@ -288,7 +429,8 @@ struct DialogSceneView: View {
                 isInputFocused: $isInputFocused,
                 onSubmit: viewModel.addText,
                 isEditing: viewModel.isEditingText,
-                selectedSpeaker: viewModel.selectedSpeaker
+                selectedSpeaker: viewModel.selectedSpeaker,
+                selectedElementType: viewModel.selectedElementType
             )
                 
                 if viewModel.isEditingText {
@@ -310,14 +452,6 @@ struct DialogSceneView: View {
     }
     
     // MARK: - Helper Methods
-    private func startEditingText(_ speakerText: SpeakerText) {
-        // Add haptic feedback for selection
-        let impactFeedback = UIImpactFeedbackGenerator(style: .light)
-        impactFeedback.impactOccurred()
-        
-        viewModel.startEditingText(speakerText)
-    }
-    
     private func cancelEditMode() {
         viewModel.cancelEditMode()
     }
@@ -412,6 +546,179 @@ struct SpeakerTextRowView: View {
     }
 }
 
+struct ScreenplayElementRowView: View {
+    let element: ScreenplayElement
+    let allElements: [ScreenplayElement]
+    let currentIndex: Int
+    let customSpeakerNames: [Speaker: String]
+    let isFlagged: Bool
+    let isBeingEdited: Bool
+    let centerLines: Bool
+    
+    var body: some View {
+        HStack {
+            if centerLines || element.type == .action {
+                centeredOrActionView
+            } else {
+                // Use speaker views for both dialogue and parentheticals
+                if element.isSpeakerA {
+                    speakerAView
+                    Spacer()
+                } else {
+                    Spacer()
+                    speakerBView
+                }
+            }
+        }
+        .padding(element.type == .action ? .vertical : .all)
+        .padding(.horizontal, element.type == .action ? 0 : 16)
+        .background(isFlagged ? Color.primary : Color.clear)
+        .foregroundColor(textColor)
+        .cornerRadius(8)
+        .blur(radius: isBeingEdited ? 2 : 0)
+        .animation(.easeInOut(duration: 0.3), value: isBeingEdited)
+    }
+    
+    private var textColor: Color {
+        if isFlagged {
+            return Color(.systemBackground)
+        } else {
+            return Color(.label)
+        }
+    }
+    
+    private var centeredOrActionView: some View {
+        VStack(alignment: element.type == .action ? .leading : .center, spacing: 4) {
+            if element.type != .action {
+                elementTypeLabel
+            }
+            
+            // Special handling for parentheticals to wrap in parentheses
+            if element.type == .parenthetical {
+                Text("(\(element.content))")
+                    .font(elementFont)
+                    .fontWeight(elementFontWeight)
+                    .italic()
+                    .foregroundColor(Color.secondary)
+                    .multilineTextAlignment(.center)
+                    .frame(maxWidth: .infinity, alignment: .center)
+            } else {
+                Text(element.content)
+                    .font(elementFont)
+                    .fontWeight(elementFontWeight)
+                    .multilineTextAlignment(element.type == .action ? .leading : .center)
+                    .frame(maxWidth: .infinity, alignment: element.type == .action ? .leading : .center)
+            }
+        }
+    }
+    
+    private var speakerAView: some View {
+        VStack(alignment: .leading, spacing: element.type == .parenthetical ? 1 : 4) {
+            elementTypeLabel
+            
+            // Special handling for parentheticals - align left like speaker A
+            if element.type == .parenthetical {
+                Text("(\(element.content))")
+                    .font(elementFont)
+                    .fontWeight(elementFontWeight)
+                    .italic()
+                    .foregroundColor(Color.secondary)
+                    .multilineTextAlignment(.leading)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+            } else {
+                Text(element.content)
+                    .font(elementFont)
+                    .fontWeight(elementFontWeight)
+            }
+        }
+    }
+    
+    private var speakerBView: some View {
+        VStack(alignment: .trailing, spacing: element.type == .parenthetical ? 1 : 4) {
+            elementTypeLabel
+            
+            // Special handling for parentheticals - align right like speaker B
+            if element.type == .parenthetical {
+                Text("(\(element.content))")
+                    .font(elementFont)
+                    .fontWeight(elementFontWeight)
+                    .italic()
+                    .foregroundColor(Color.secondary)
+                    .multilineTextAlignment(.trailing)
+                    .frame(maxWidth: .infinity, alignment: .trailing)
+            } else {
+                Text(element.content)
+                    .font(elementFont)
+                    .fontWeight(elementFontWeight)
+                    .multilineTextAlignment(.trailing)
+            }
+        }
+    }
+    
+    @ViewBuilder
+    private var elementTypeLabel: some View {
+        switch element.type {
+        case .dialogue:
+            // Show speaker name for dialogue using the same smart logic
+            if shouldShowSpeakerName, let speaker = element.speaker {
+                Text(speaker.displayName(customNames: customSpeakerNames))
+                    .font(.headline)
+                    .fontWeight(.black)
+            }
+            
+        case .parenthetical:
+            // Show speaker name for parentheticals using the same smart logic
+            if shouldShowSpeakerName, let speaker = element.speaker {
+                Text(speaker.displayName(customNames: customSpeakerNames))
+                    .font(.headline)
+                    .fontWeight(.black)
+            }
+            
+        case .action:
+            EmptyView()
+        }
+    }
+    
+    // Helper to determine if we should show speaker name for any speaker element
+    private var shouldShowSpeakerName: Bool {
+        guard element.type == .dialogue || element.type == .parenthetical,
+              let currentSpeaker = element.speaker else {
+            return false
+        }
+        
+        // If this is the first element, show speaker name
+        if currentIndex == 0 {
+            return true
+        }
+        
+        // If the previous element is from a different speaker, show speaker name
+        let previousElement = allElements[currentIndex - 1]
+        return previousElement.speaker != currentSpeaker
+    }
+    
+    private var elementFont: Font {
+        switch element.type {
+        case .dialogue:
+            return .body
+        case .parenthetical:
+            return .body  // Same size as dialogue for better readability
+        case .action:
+            return .body
+        }
+    }
+    
+    private var elementFontWeight: Font.Weight {
+        switch element.type {
+        case .dialogue:
+            return .light
+        case .parenthetical:
+            return .regular
+        case .action:
+            return .regular
+        }
+    }
+}
+
 struct SpeakerSelectorView: View {
     @Binding var selectedSpeaker: Speaker
     let viewModel: DialogViewModel
@@ -471,18 +778,100 @@ struct TextInputView: View {
     let onSubmit: () -> Void
     let isEditing: Bool
     let selectedSpeaker: Speaker
+    let selectedElementType: ScreenplayElementType
+    
+    private var placeholder: String {
+        if isEditing {
+            return "Edit \(selectedElementType.displayName.lowercased())...".localized
+        } else {
+            switch selectedElementType {
+            case .dialogue:
+                return "Enter dialog...".localized
+            case .parenthetical:
+                return "Type parenthetical text...".localized
+            case .action:
+                return "Enter action...".localized
+            }
+        }
+    }
     
     var body: some View {
-                    TextField(isEditing ? "Edit dialog...".localized : "Enter dialog...".localized, text: $text, axis: .vertical)
-            .lineLimit(1...4)
+        TextField(placeholder, text: $text, axis: .vertical)
+            .lineLimit(selectedElementType == .action ? 1...10 : 1...4)
             .focused($isInputFocused)
             .onSubmit {
                 onSubmit()
             }
-            .multilineTextAlignment(isEditing && selectedSpeaker == .b ? .trailing : .leading)
+            .multilineTextAlignment(getTextAlignment())
             .padding(.horizontal, 8)
             .padding(.vertical, 12)
             .frame(minHeight: 44)
+            .onChange(of: selectedElementType) { _, newType in
+                // When switching to parenthetical mode, start with opening parenthesis
+                if newType == .parenthetical && text.isEmpty {
+                    text = "("
+                    // Position cursor at the end
+                    DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
+                        if let textField = UIResponder.currentFirstResponder as? UITextField {
+                            let endPosition = textField.endOfDocument
+                            textField.selectedTextRange = textField.textRange(from: endPosition, to: endPosition)
+                        }
+                    }
+                }
+            }
+    }
+    
+    private func getTextAlignment() -> TextAlignment {
+        if isEditing && selectedSpeaker == .b {
+            return .trailing
+        }
+        
+        switch selectedElementType {
+        case .dialogue:
+            return selectedSpeaker == .b ? .trailing : .leading
+        case .parenthetical:
+            return selectedSpeaker == .b ? .trailing : .leading  // Align with speaker
+        case .action:
+            return .leading
+        }
+    }
+}
+
+struct ElementTypeSelectorView: View {
+    @Binding var selectedElementType: ScreenplayElementType
+    @ObservedObject var viewModel: DialogViewModel
+    
+    var body: some View {
+        HStack(spacing: 12) {
+            // Only show Parenthetical and Action buttons (skip dialogue)
+            ForEach([ScreenplayElementType.parenthetical, ScreenplayElementType.action], id: \.self) { elementType in
+                Button(action: {
+                    // Toggle behavior: if already selected, go back to dialogue
+                    if selectedElementType == elementType {
+                        selectedElementType = .dialogue
+                    } else {
+                        selectedElementType = elementType
+                    }
+                    
+                    // Add haptic feedback
+                    let impactFeedback = UIImpactFeedbackGenerator(style: .light)
+                    impactFeedback.impactOccurred()
+                }) {
+                    Text(elementType.displayName)
+                        .font(.caption)
+                        .fontWeight(selectedElementType == elementType ? .semibold : .regular)
+                        .foregroundColor(selectedElementType == elementType ? .white : .primary)
+                        .padding(.horizontal, 12)
+                        .padding(.vertical, 6)
+                        .background(
+                            RoundedRectangle(cornerRadius: 16)
+                                .fill(selectedElementType == elementType ? Color.accentColor : Color(.systemGray5))
+                        )
+                }
+                .buttonStyle(PlainButtonStyle())
+            }
+        }
+        .padding(.horizontal)
     }
 }
 

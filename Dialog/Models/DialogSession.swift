@@ -9,6 +9,7 @@ struct DialogSession: Identifiable, Codable, FileDocument {
     var lastModified: Date
     var title: String
     var textlines: [SpeakerText]
+    var screenplayElements: [ScreenplayElement] // New screenplay elements system
     var customSpeakerNames: [Speaker: String]
     var flaggedTextIds: Set<UUID>
     
@@ -19,7 +20,22 @@ struct DialogSession: Identifiable, Codable, FileDocument {
         guard let data = configuration.file.regularFileContents else {
             throw CocoaError(.fileReadCorruptFile)
         }
-        self = try JSONDecoder().decode(DialogSession.self, from: data)
+        
+        // Try to decode with new format first, fall back to legacy format
+        if let session = try? JSONDecoder().decode(DialogSession.self, from: data) {
+            self = session
+        } else {
+            // Handle legacy format without screenplayElements
+            let legacySession = try JSONDecoder().decode(LegacyDialogSession.self, from: data)
+            self.id = legacySession.id
+            self.createdAt = legacySession.createdAt
+            self.lastModified = legacySession.lastModified
+            self.title = legacySession.title
+            self.textlines = legacySession.textlines
+            self.screenplayElements = [] // Empty for legacy sessions
+            self.customSpeakerNames = legacySession.customSpeakerNames
+            self.flaggedTextIds = legacySession.flaggedTextIds
+        }
     }
     
     func fileWrapper(configuration: WriteConfiguration) throws -> FileWrapper {
@@ -33,6 +49,7 @@ struct DialogSession: Identifiable, Codable, FileDocument {
         self.createdAt = Date()
         self.lastModified = Date()
         self.textlines = viewModel.textlines
+        self.screenplayElements = viewModel.screenplayElements
         self.customSpeakerNames = viewModel.customSpeakerNames
         self.flaggedTextIds = viewModel.flaggedTextIds
         
@@ -40,7 +57,12 @@ struct DialogSession: Identifiable, Codable, FileDocument {
         if !viewModel.currentTitle.isEmpty {
             self.title = viewModel.currentTitle
         } else {
-            self.title = Self.generateTitle(from: self.textlines)
+            // Generate title from screenplay elements if available, otherwise use textlines
+            if !screenplayElements.isEmpty {
+                self.title = Self.generateTitle(from: screenplayElements)
+            } else {
+                self.title = Self.generateTitle(from: self.textlines)
+            }
         }
     }
     
@@ -58,12 +80,39 @@ struct DialogSession: Identifiable, Codable, FileDocument {
         return titleWords.joined(separator: " ") + (words.count > 3 ? "..." : "")
     }
     
+    static func generateTitle(from elements: [ScreenplayElement]) -> String {
+        guard !elements.isEmpty else { return "New Screenplay" }
+        
+        // Find the first meaningful content (dialogue or action)
+        let meaningfulElement = elements.first { element in
+            element.type == .dialogue || element.type == .action
+        }
+        
+        guard let element = meaningfulElement else {
+            // Fall back to first element if no dialogue or action found
+            let firstContent = elements[0].content
+            let words = firstContent.components(separatedBy: .whitespacesAndNewlines)
+            let titleWords = Array(words.prefix(3))
+            return titleWords.isEmpty ? "New Screenplay" : titleWords.joined(separator: " ") + (words.count > 3 ? "..." : "")
+        }
+        
+        let words = element.content.components(separatedBy: .whitespacesAndNewlines)
+        let titleWords = Array(words.prefix(3))
+        
+        if titleWords.isEmpty {
+            return "New Screenplay"
+        }
+        
+        return titleWords.joined(separator: " ") + (words.count > 3 ? "..." : "")
+    }
+    
     var lineCount: Int {
-        textlines.count
+        // Count both legacy textlines and new screenplay elements
+        return textlines.count + screenplayElements.count
     }
     
     var isEmpty: Bool {
-        textlines.isEmpty
+        return textlines.isEmpty && screenplayElements.isEmpty
     }
     
     // MARK: - Content Comparison
@@ -101,6 +150,17 @@ struct DialogSession: Identifiable, Codable, FileDocument {
         
         return false
     }
+}
+
+// MARK: - Legacy Model for Backward Compatibility
+struct LegacyDialogSession: Codable {
+    var id = UUID()
+    let createdAt: Date
+    var lastModified: Date
+    var title: String
+    var textlines: [SpeakerText]
+    var customSpeakerNames: [Speaker: String]
+    var flaggedTextIds: Set<UUID>
 }
 
 // MARK: - Custom UTType
