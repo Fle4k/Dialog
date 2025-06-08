@@ -171,6 +171,9 @@ struct DialogSceneView: View {
     // Undo state
     @State private var showingUndoToast = false
     
+    // Menu animation state
+    @State private var centerLinesJustTapped = false
+    
     let onSave: ((DialogViewModel) -> Void)?
     let existingSession: DialogSession?
     let toolbarTransition: Namespace.ID?
@@ -209,9 +212,22 @@ struct DialogSceneView: View {
             ToolbarItem(placement: .topBarTrailing) {
                 Menu {
                     Button(action: {
-                        settingsManager.updateCenterLines(!settingsManager.centerLinesEnabled)
+                        centerLinesJustTapped = true
+                        
+                        // Delay the actual toggle so we see the checkmark first
+                        DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
+                            settingsManager.updateCenterLines(!settingsManager.centerLinesEnabled)
+                        }
+                        
+                        // Reset the animation state
+                        DispatchQueue.main.asyncAfter(deadline: .now() + 0.4) {
+                            centerLinesJustTapped = false
+                        }
                     }) {
-                        Label("Center Dialog Lines".localized, systemImage: settingsManager.centerLinesEnabled ? "checkmark" : "lines.measurement.vertical")
+                        Label(
+                            settingsManager.centerLinesEnabled ? "Dialog Left/Right".localized : "Center Dialog Lines".localized,
+                            systemImage: centerLinesJustTapped ? "checkmark.square" : "square"
+                        )
                     }
                     
                     Divider()
