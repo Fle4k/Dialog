@@ -208,6 +208,14 @@ struct DialogSceneView: View {
         .toolbar {
             ToolbarItem(placement: .topBarTrailing) {
                 Menu {
+                    Button(action: {
+                        settingsManager.updateCenterLines(!settingsManager.centerLinesEnabled)
+                    }) {
+                        Label("Center Dialog Lines".localized, systemImage: settingsManager.centerLinesEnabled ? "checkmark" : "lines.measurement.vertical")
+                    }
+                    
+                    Divider()
+                    
                     ShareLink(
                         item: viewModel.exportToFDXURL(),
                         preview: SharePreview("Dialog.fdx", image: Image(systemName: "doc.text"))
@@ -231,11 +239,11 @@ struct DialogSceneView: View {
                 } label: {
                     Group {
                         if let toolbarTransition = toolbarTransition {
-                            Image(systemName: "square.and.arrow.up")
+                            Image(systemName: "ellipsis")
                                 .foregroundColor(.primary)
                                 .matchedGeometryEffect(id: "toolbarIcon", in: toolbarTransition)
                         } else {
-                            Image(systemName: "square.and.arrow.up")
+                            Image(systemName: "ellipsis")
                                 .foregroundColor(.primary)
                         }
                     }

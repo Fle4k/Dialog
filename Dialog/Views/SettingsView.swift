@@ -29,16 +29,6 @@ struct SettingsView: View {
     // MARK: - Settings List
     private var settingsList: some View {
         List {
-            // Display Section
-            Section {
-                centerLinesRow
-            } header: {
-                Text("Display".localized)
-                    .font(.footnote)
-                    .fontWeight(.medium)
-                    .foregroundColor(.secondary)
-            }
-            
             // Language Section
             Section {
                 languageRow
@@ -87,31 +77,6 @@ struct SettingsView: View {
             }
         }
         .listStyle(.insetGrouped)
-    }
-    
-    // MARK: - Center Lines Row
-    private var centerLinesRow: some View {
-        HStack(spacing: 12) {
-            VStack(alignment: .leading, spacing: 2) {
-                Text("Center Dialog Lines".localized)
-                    .font(.body)
-                    .fontWeight(.medium)
-                
-                Text("Display all characters centered instead of left/right".localized)
-                    .font(.caption)
-                    .foregroundColor(.secondary)
-            }
-            
-            Spacer()
-            
-            Toggle("", isOn: $settingsManager.centerLinesEnabled)
-                .labelsHidden()
-                .toggleStyle(DarkModeToggleStyle())
-                .onChange(of: settingsManager.centerLinesEnabled) { _, newValue in
-                    settingsManager.updateCenterLines(newValue)
-                }
-        }
-        .padding(.vertical, 4)
     }
     
     // MARK: - Language Row
