@@ -41,19 +41,32 @@ struct GroupedElementRowView: View {
     let groupedElement: GroupedElement
     let customSpeakerNames: [Speaker: String]
     let centerLines: Bool
+    let viewModel: DialogViewModel
+    
+    var isAnyElementFlagged: Bool {
+        groupedElement.elements.contains { element in
+            viewModel.isElementFlagged(element.id)
+        }
+    }
     
     var body: some View {
-        if centerLines || groupedElement.speaker == nil {
-            // Center aligned for actions or when center mode is enabled
-            centeredView
-        } else {
-            // Speaker aligned view
-            if groupedElement.speaker == .a {
-                speakerAGroupView
+        Group {
+            if centerLines || groupedElement.speaker == nil {
+                // Center aligned for actions or when center mode is enabled
+                centeredView
             } else {
-                speakerBGroupView
+                // Speaker aligned view
+                if groupedElement.speaker == .a {
+                    speakerAGroupView
+                } else {
+                    speakerBGroupView
+                }
             }
         }
+        .padding()
+        .background(isAnyElementFlagged ? Color.primary : Color.clear)
+        .foregroundColor(isAnyElementFlagged ? Color(.systemBackground) : Color(.label))
+        .cornerRadius(8)
     }
     
     private var speakerAGroupView: some View {
@@ -110,12 +123,28 @@ struct GroupedElementRowView: View {
     
     private var centeredView: some View {
         VStack(spacing: 6) {
+            // Show speaker name if this is dialogue or parenthetical
+            if let speaker = groupedElement.speaker, groupedElement.elements.first?.type != .action {
+                Text(speaker.displayName(customNames: customSpeakerNames))
+                    .font(.headline)
+                    .fontWeight(.semibold)
+            }
+            
+            // Show all elements for this group
             ForEach(groupedElement.elements) { element in
-                Text(element.content)
-                    .font(.body)
-                    .italic(element.type == .action)
-                    .multilineTextAlignment(element.type == .action ? .leading : .center)
-                    .frame(maxWidth: .infinity, alignment: element.type == .action ? .leading : .center)
+                if element.type == .parenthetical {
+                    Text("(\(element.content))")
+                        .font(.caption)
+                        .foregroundColor(.secondary)
+                        .italic()
+                        .multilineTextAlignment(.center)
+                } else {
+                    Text(element.content)
+                        .font(.body)
+                        .italic(element.type == .action)
+                        .multilineTextAlignment(element.type == .action ? .leading : .center)
+                        .frame(maxWidth: .infinity, alignment: element.type == .action ? .leading : .center)
+                }
             }
         }
         .frame(maxWidth: .infinity)
@@ -340,6 +369,11 @@ struct DialogSceneView: View {
             } else {
                 emptyStateView
             }
+            
+            // Show selected speaker preview when input area is visible
+            if viewModel.showInputArea && viewModel.selectedElementType.requiresSpeaker {
+                selectedSpeakerPreview
+            }
         }
         .listStyle(.plain)
         .contentMargins(.bottom, viewModel.showInputArea ? 60 : 0)
@@ -363,13 +397,71 @@ struct DialogSceneView: View {
             GroupedElementRowView(
                 groupedElement: groupedElement,
                 customSpeakerNames: viewModel.customSpeakerNames,
-                centerLines: settingsManager.centerLinesEnabled
+                centerLines: settingsManager.centerLinesEnabled,
+                viewModel: viewModel
             )
             .listRowBackground(Color.clear)
             .listRowSeparator(.hidden)
             .listRowInsets(EdgeInsets(top: 8, leading: 16, bottom: 8, trailing: 16))
             .id(groupedElement.id)
+            .swipeActions(edge: .leading, allowsFullSwipe: false) {
+                Button(action: {
+                    // Flag/unflag all elements in this group
+                    for element in groupedElement.elements {
+                        viewModel.toggleFlag(for: element.id)
+                    }
+                }) {
+                    let isAnyFlagged = groupedElement.elements.contains { element in
+                        viewModel.isElementFlagged(element.id)
+                    }
+                    Label(isAnyFlagged ? "Unflag".localized : "Flag".localized, 
+                          systemImage: isAnyFlagged ? "flag.slash" : "flag")
+                }
+                .tint(.orange)
+            }
+            .swipeActions(edge: .trailing, allowsFullSwipe: true) {
+                Button("Delete".localized, role: .destructive) {
+                    // Delete all elements in this group
+                    for element in groupedElement.elements {
+                        viewModel.deleteScreenplayElement(withId: element.id)
+                    }
+                }
+                .tint(.red)
+            }
         }
+        .onDelete { indexSet in
+            // Handle traditional swipe-to-delete gesture
+            let groupedElements = getGroupedElements()
+            for index in indexSet {
+                if index < groupedElements.count {
+                    let groupedElement = groupedElements[index]
+                    for element in groupedElement.elements {
+                        viewModel.deleteScreenplayElement(withId: element.id)
+                    }
+                }
+            }
+        }
+    }
+    
+    private var selectedSpeakerPreview: some View {
+        GroupedElementRowView(
+            groupedElement: GroupedElement(
+                id: UUID(), // Temporary ID for preview
+                speaker: viewModel.selectedSpeaker,
+                elements: [ScreenplayElement(
+                    type: viewModel.selectedElementType,
+                    content: viewModel.inputText,
+                    speaker: viewModel.selectedSpeaker
+                )]
+            ),
+            customSpeakerNames: viewModel.customSpeakerNames,
+            centerLines: settingsManager.centerLinesEnabled,
+            viewModel: viewModel
+        )
+        .listRowBackground(Color.clear)
+        .listRowSeparator(.hidden)
+        .listRowInsets(EdgeInsets(top: 8, leading: 16, bottom: 8, trailing: 16))
+        .allowsHitTesting(false) // Disable interaction for preview
     }
     
     // MARK: - Helper Methods

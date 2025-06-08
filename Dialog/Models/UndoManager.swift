@@ -10,6 +10,7 @@ enum UndoAction {
     case renameSpeaker(Speaker, String?, String?) // speaker, oldName, newName
     case deleteSession(DialogSession, Int) // session and its original index
     case renameSession(UUID, String, String) // sessionId, oldTitle, newTitle
+    case deleteScreenplayElement(ScreenplayElement, Int) // element and its original index
 }
 
 // MARK: - Undo Manager
@@ -44,6 +45,8 @@ class AppUndoManager: ObservableObject {
             return "Delete Dialog"
         case .renameSession(_, _, _):
             return "Rename Dialog"
+        case .deleteScreenplayElement(_, _):
+            return "Delete Element"
         }
     }
     
@@ -82,6 +85,9 @@ class AppUndoManager: ObservableObject {
             
         case .renameSession(let sessionId, let oldTitle, _):
             mainMenuViewModel?.undoRenameSession(sessionId: sessionId, oldTitle: oldTitle)
+            
+        case .deleteScreenplayElement(let element, let originalIndex):
+            dialogViewModel?.undoDeleteScreenplayElement(element, at: originalIndex)
         }
         
         objectWillChange.send()

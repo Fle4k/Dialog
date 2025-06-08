@@ -293,6 +293,22 @@ final class DialogViewModel: ObservableObject {
         flaggedTextIds.contains(textId)
     }
     
+    // MARK: - Screenplay Element Management
+    func deleteScreenplayElement(withId id: UUID) {
+        guard let index = screenplayElements.firstIndex(where: { $0.id == id }) else { return }
+        let element = screenplayElements[index]
+        
+        // Record undo action
+        undoManager.recordAction(.deleteScreenplayElement(element, index))
+        
+        screenplayElements.removeAll { $0.id == id }
+        flaggedTextIds.remove(id)
+    }
+    
+    func isElementFlagged(_ elementId: UUID) -> Bool {
+        flaggedTextIds.contains(elementId)
+    }
+    
     func getSpeakerName(for speaker: Speaker) -> String {
         return speaker.displayName(customNames: customSpeakerNames)
     }
@@ -573,6 +589,15 @@ final class DialogViewModel: ObservableObject {
     
     func undoRenameSpeaker(_ speaker: Speaker, oldName: String?) {
         customSpeakerNames[speaker] = oldName
+    }
+    
+    func undoDeleteScreenplayElement(_ element: ScreenplayElement, at originalIndex: Int) {
+        // Insert at the original position if it's valid, otherwise append
+        if originalIndex >= 0 && originalIndex <= screenplayElements.count {
+            screenplayElements.insert(element, at: originalIndex)
+        } else {
+            screenplayElements.append(element)
+        }
     }
     
     func canUndo() -> Bool {
