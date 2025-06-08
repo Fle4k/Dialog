@@ -41,12 +41,14 @@ struct GroupedElementRowView: View {
     let groupedElement: GroupedElement
     let customSpeakerNames: [Speaker: String]
     let centerLines: Bool
-    let viewModel: DialogViewModel
+    @ObservedObject var viewModel: DialogViewModel
     
     var isAnyElementFlagged: Bool {
-        groupedElement.elements.contains { element in
+        let flagged = groupedElement.elements.contains { element in
             viewModel.isElementFlagged(element.id)
         }
+        print("🎨 Visual check for group \(groupedElement.id): flagged = \(flagged)")
+        return flagged
     }
     
     var body: some View {
@@ -82,7 +84,7 @@ struct GroupedElementRowView: View {
                     if element.type == .parenthetical {
                         Text("(\(element.content))")
                             .font(.caption)
-                            .foregroundColor(.secondary)
+                            .foregroundColor(isAnyElementFlagged ? Color(.systemBackground).opacity(0.8) : .secondary)
                             .italic()
                     } else {
                         Text(element.content)
@@ -108,7 +110,7 @@ struct GroupedElementRowView: View {
                     if element.type == .parenthetical {
                         Text("(\(element.content))")
                             .font(.caption)
-                            .foregroundColor(.secondary)
+                            .foregroundColor(isAnyElementFlagged ? Color(.systemBackground).opacity(0.8) : .secondary)
                             .italic()
                             .multilineTextAlignment(.trailing)
                     } else {
@@ -135,7 +137,7 @@ struct GroupedElementRowView: View {
                 if element.type == .parenthetical {
                     Text("(\(element.content))")
                         .font(.caption)
-                        .foregroundColor(.secondary)
+                        .foregroundColor(isAnyElementFlagged ? Color(.systemBackground).opacity(0.8) : .secondary)
                         .italic()
                         .multilineTextAlignment(.center)
                 } else {
@@ -337,9 +339,8 @@ struct DialogSceneView: View {
             }
         }
         .onDisappear {
-            if !viewModel.screenplayElements.isEmpty {
-                onSave?(viewModel)
-            }
+            // Always save the session, even if empty (to handle deletions)
+            onSave?(viewModel)
         }
         .onChange(of: viewModel.shouldFocusInput) { _, shouldFocus in
             isInputFocused = shouldFocus
@@ -390,6 +391,9 @@ struct DialogSceneView: View {
         .frame(maxWidth: .infinity, maxHeight: .infinity)
         .listRowBackground(Color.clear)
         .listRowSeparator(.hidden)
+        .onTapGesture {
+            viewModel.handleViewTap()
+        }
     }
 
     private var screenplayElementsForEach: some View {
@@ -404,41 +408,35 @@ struct DialogSceneView: View {
             .listRowSeparator(.hidden)
             .listRowInsets(EdgeInsets(top: 8, leading: 16, bottom: 8, trailing: 16))
             .id(groupedElement.id)
-            .swipeActions(edge: .leading, allowsFullSwipe: false) {
-                Button(action: {
+            .swipeActions(edge: .leading, allowsFullSwipe: true) {
+                let isAnyFlagged = groupedElement.elements.contains { element in
+                    viewModel.isElementFlagged(element.id)
+                }
+                Button {
+                    print("🚩 Flag button tapped for group: \(groupedElement.id)")
                     // Flag/unflag all elements in this group
                     for element in groupedElement.elements {
+                        print("🚩 Toggling flag for element: \(element.id)")
                         viewModel.toggleFlag(for: element.id)
                     }
-                }) {
-                    let isAnyFlagged = groupedElement.elements.contains { element in
-                        viewModel.isElementFlagged(element.id)
-                    }
-                    Label(isAnyFlagged ? "Unflag".localized : "Flag".localized, 
-                          systemImage: isAnyFlagged ? "flag.slash" : "flag")
+                    print("🚩 Flag action completed")
+                } label: {
+                    Image(systemName: isAnyFlagged ? "flag.slash.fill" : "flag.fill")
+                        .font(.title2)
                 }
                 .tint(.orange)
             }
             .swipeActions(edge: .trailing, allowsFullSwipe: true) {
-                Button("Delete".localized, role: .destructive) {
+                Button {
                     // Delete all elements in this group
                     for element in groupedElement.elements {
                         viewModel.deleteScreenplayElement(withId: element.id)
                     }
+                } label: {
+                    Image(systemName: "trash.fill")
+                        .font(.title2)
                 }
                 .tint(.red)
-            }
-        }
-        .onDelete { indexSet in
-            // Handle traditional swipe-to-delete gesture
-            let groupedElements = getGroupedElements()
-            for index in indexSet {
-                if index < groupedElements.count {
-                    let groupedElement = groupedElements[index]
-                    for element in groupedElement.elements {
-                        viewModel.deleteScreenplayElement(withId: element.id)
-                    }
-                }
             }
         }
     }

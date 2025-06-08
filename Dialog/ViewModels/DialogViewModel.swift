@@ -276,21 +276,31 @@ final class DialogViewModel: ObservableObject {
         textlines.remove(atOffsets: offsets)
     }
     
-    func toggleFlag(for textId: UUID) {
-        let wasAdd = !flaggedTextIds.contains(textId)
+        // MARK: - Flag Management (works for both textlines and screenplay elements)
+    func toggleFlag(for id: UUID) {
+        let wasAdd = !flaggedTextIds.contains(id)
+        print("🚩 toggleFlag called for ID: \(id), wasAdd: \(wasAdd)")
+        print("🚩 Current flaggedTextIds: \(flaggedTextIds)")
         
         // Record undo action
-        undoManager.recordAction(.toggleFlag(textId, wasAdd))
+        undoManager.recordAction(.toggleFlag(id, wasAdd))
         
-        if flaggedTextIds.contains(textId) {
-            flaggedTextIds.remove(textId)
+        if flaggedTextIds.contains(id) {
+            flaggedTextIds.remove(id)
+            print("🚩 Removed flag for ID: \(id)")
         } else {
-            flaggedTextIds.insert(textId)
+            flaggedTextIds.insert(id)
+            print("🚩 Added flag for ID: \(id)")
         }
+        print("🚩 Updated flaggedTextIds: \(flaggedTextIds)")
     }
-    
+
     func isTextFlagged(_ textId: UUID) -> Bool {
         flaggedTextIds.contains(textId)
+    }
+    
+    func isElementFlagged(_ elementId: UUID) -> Bool {
+        flaggedTextIds.contains(elementId)
     }
     
     // MARK: - Screenplay Element Management
@@ -303,10 +313,11 @@ final class DialogViewModel: ObservableObject {
         
         screenplayElements.removeAll { $0.id == id }
         flaggedTextIds.remove(id)
-    }
-    
-    func isElementFlagged(_ elementId: UUID) -> Bool {
-        flaggedTextIds.contains(elementId)
+        
+        // If we deleted the last element and we're in fullscreen mode, exit to writing mode
+        if screenplayElements.isEmpty && isFullscreenMode {
+            exitFullscreenMode()
+        }
     }
     
     func getSpeakerName(for speaker: Speaker) -> String {
