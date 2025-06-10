@@ -19,6 +19,7 @@ final class DialogViewModel: ObservableObject {
     // MARK: - Edit Mode Properties
     @Published var isEditingText: Bool = false
     @Published var editingTextId: UUID? = nil
+    @Published var editingGroupId: UUID? = nil
     @Published var editingOriginalSpeaker: Speaker? = nil
     
     // MARK: - UI State Properties (moved from View)
@@ -90,6 +91,29 @@ final class DialogViewModel: ObservableObject {
         inputText = speakerText.text
         selectedSpeaker = speakerText.speaker
         editingOriginalSpeaker = speakerText.speaker
+        
+        if isFullscreenMode {
+            exitFullscreenMode()
+        } else {
+            showInputAreaWithFocus()
+        }
+    }
+    
+    func startEditingGroup(_ groupedElement: GroupedElement) {
+        isEditingText = true
+        editingGroupId = groupedElement.id
+        editingOriginalSpeaker = groupedElement.speaker
+        
+        // For now, edit the first dialogue element in the group
+        if let firstDialogue = groupedElement.elements.first(where: { $0.type == .dialogue }) {
+            inputText = firstDialogue.content
+            selectedSpeaker = firstDialogue.speaker ?? groupedElement.speaker ?? .a
+            selectedElementType = .dialogue
+        } else if let firstElement = groupedElement.elements.first {
+            inputText = firstElement.content
+            selectedSpeaker = firstElement.speaker ?? .a
+            selectedElementType = firstElement.type
+        }
         
         if isFullscreenMode {
             exitFullscreenMode()
@@ -190,19 +214,33 @@ final class DialogViewModel: ObservableObject {
     }
     
     private func handleElementTypeSpecificLogic() {
+        print("🔄 handleElementTypeSpecificLogic - elementType: \(selectedElementType), currentSpeaker: \(selectedSpeaker)")
+        
         switch selectedElementType {
         case .dialogue:
-            // After dialogue, toggle to other speaker and stay in dialogue mode
-            selectedSpeaker.toggle()
+            // Check if the previous element was a parenthetical from the same speaker
+            let lastElement = screenplayElements.last
+            let isFollowingParenthetical = lastElement?.type == .parenthetical && lastElement?.speaker == selectedSpeaker
+            
+            if isFollowingParenthetical {
+                // Don't toggle speaker - this is continuation of the same speaker's dialogue after parenthetical
+                print("🔄 After dialogue (following parenthetical): keeping speaker as \(selectedSpeaker)")
+            } else {
+                // Normal dialogue flow - toggle to other speaker
+                selectedSpeaker.toggle()
+                print("🔄 After dialogue: toggled speaker to \(selectedSpeaker)")
+            }
             
         case .parenthetical:
             // After parenthetical, return to dialogue for the SAME speaker (don't toggle)
             selectedElementType = .dialogue
+            print("🔄 After parenthetical: keeping speaker as \(selectedSpeaker), elementType now \(selectedElementType)")
             
         case .action:
             // After action, go back to normal dialogue flow with next speaker
             selectedElementType = .dialogue
             selectedSpeaker.toggle()
+            print("🔄 After action: toggled speaker to \(selectedSpeaker), elementType now \(selectedElementType)")
         }
     }
     
@@ -217,6 +255,7 @@ final class DialogViewModel: ObservableObject {
     func exitEditMode() {
         isEditingText = false
         editingTextId = nil
+        editingGroupId = nil
         editingOriginalSpeaker = nil
     }
     

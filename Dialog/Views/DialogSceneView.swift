@@ -42,6 +42,8 @@ struct GroupedElementRowView: View {
     let customSpeakerNames: [Speaker: String]
     let centerLines: Bool
     @ObservedObject var viewModel: DialogViewModel
+    let shouldShowSpeakerName: Bool
+    let isBeingEdited: Bool
     
     var isAnyElementFlagged: Bool {
         let flagged = groupedElement.elements.contains { element in
@@ -69,15 +71,19 @@ struct GroupedElementRowView: View {
         .background(isAnyElementFlagged ? Color.primary : Color.clear)
         .foregroundColor(isAnyElementFlagged ? Color(.systemBackground) : Color(.label))
         .cornerRadius(8)
+        .blur(radius: isBeingEdited ? 2 : 0)
+        .animation(.easeInOut(duration: 0.3), value: isBeingEdited)
     }
     
     private var speakerAGroupView: some View {
         HStack {
             VStack(alignment: .leading, spacing: 6) {
-                // Speaker name
-                Text(groupedElement.speaker?.displayName(customNames: customSpeakerNames) ?? "")
-                    .font(.headline)
-                    .fontWeight(.semibold)
+                // Speaker name (only show if needed)
+                if shouldShowSpeakerName {
+                    Text(groupedElement.speaker?.displayName(customNames: customSpeakerNames) ?? "")
+                        .font(.headline)
+                        .fontWeight(.semibold)
+                }
                 
                 // All elements for this speaker
                 ForEach(groupedElement.elements) { element in
@@ -100,10 +106,12 @@ struct GroupedElementRowView: View {
         HStack {
             Spacer()
             VStack(alignment: .trailing, spacing: 6) {
-                // Speaker name
-                Text(groupedElement.speaker?.displayName(customNames: customSpeakerNames) ?? "")
-                    .font(.headline)
-                    .fontWeight(.semibold)
+                // Speaker name (only show if needed)
+                if shouldShowSpeakerName {
+                    Text(groupedElement.speaker?.displayName(customNames: customSpeakerNames) ?? "")
+                        .font(.headline)
+                        .fontWeight(.semibold)
+                }
                 
                 // All elements for this speaker
                 ForEach(groupedElement.elements) { element in
@@ -125,8 +133,8 @@ struct GroupedElementRowView: View {
     
     private var centeredView: some View {
         VStack(spacing: 6) {
-            // Show speaker name if this is dialogue or parenthetical
-            if let speaker = groupedElement.speaker, groupedElement.elements.first?.type != .action {
+            // Show speaker name if this is dialogue or parenthetical (only show if needed)
+            if let speaker = groupedElement.speaker, groupedElement.elements.first?.type != .action, shouldShowSpeakerName {
                 Text(speaker.displayName(customNames: customSpeakerNames))
                     .font(.headline)
                     .fontWeight(.semibold)
@@ -374,6 +382,7 @@ struct DialogSceneView: View {
             // Show selected speaker preview when input area is visible
             if viewModel.showInputArea && viewModel.selectedElementType.requiresSpeaker {
                 selectedSpeakerPreview
+                    .opacity(shouldShowSpeakerPreview ? 1.0 : 0.0)
             }
         }
         .listStyle(.plain)
@@ -402,7 +411,9 @@ struct DialogSceneView: View {
                 groupedElement: groupedElement,
                 customSpeakerNames: viewModel.customSpeakerNames,
                 centerLines: settingsManager.centerLinesEnabled,
-                viewModel: viewModel
+                viewModel: viewModel,
+                shouldShowSpeakerName: shouldShowSpeakerName(for: index),
+                isBeingEdited: viewModel.editingGroupId == groupedElement.id
             )
             .listRowBackground(Color.clear)
             .listRowSeparator(.hidden)
@@ -438,6 +449,12 @@ struct DialogSceneView: View {
                 }
                 .tint(.red)
             }
+            .simultaneousGesture(
+                LongPressGesture(minimumDuration: 0.5)
+                    .onEnded { _ in
+                        startEditingGroup(groupedElement)
+                    }
+            )
         }
     }
     
@@ -454,7 +471,9 @@ struct DialogSceneView: View {
             ),
             customSpeakerNames: viewModel.customSpeakerNames,
             centerLines: settingsManager.centerLinesEnabled,
-            viewModel: viewModel
+            viewModel: viewModel,
+            shouldShowSpeakerName: true, // Always show speaker name in preview
+            isBeingEdited: false // Preview is never being edited
         )
         .listRowBackground(Color.clear)
         .listRowSeparator(.hidden)
@@ -467,6 +486,8 @@ struct DialogSceneView: View {
         var groupedElements: [GroupedElement] = []
         var i = 0
         
+        print("🎭 getGroupedElements: starting with \(viewModel.screenplayElements.count) elements")
+        
         while i < viewModel.screenplayElements.count {
             let element = viewModel.screenplayElements[i]
             
@@ -477,42 +498,94 @@ struct DialogSceneView: View {
                 
                 // Add current element
                 elementsInGroup.append(element)
+                print("🎭 Starting new group for speaker \(speaker.rawValue), element type: \(element.type)")
                 
-                // Look ahead for parentheticals from the same speaker
+                // Look ahead for consecutive elements from the same speaker
                 var j = i + 1
                 while j < viewModel.screenplayElements.count {
                     let nextElement = viewModel.screenplayElements[j]
-                    if nextElement.type == .parenthetical && nextElement.speaker == speaker {
+                    // Group together if same speaker and either dialogue or parenthetical
+                    if nextElement.speaker == speaker && (nextElement.type == .dialogue || nextElement.type == .parenthetical) {
                         elementsInGroup.append(nextElement)
-                        j += 1
-                    } else if nextElement.type == .dialogue && nextElement.speaker == speaker {
-                        elementsInGroup.append(nextElement)
+                        print("🎭 Adding element to group: speaker \(speaker.rawValue), type: \(nextElement.type)")
                         j += 1
                     } else {
+                        print("🎭 Breaking group: next element speaker \(nextElement.speaker?.rawValue ?? "nil"), type: \(nextElement.type)")
                         break
                     }
                 }
                 
                 // Create grouped element
-                groupedElements.append(GroupedElement(
+                let groupedElement = GroupedElement(
                     id: element.id,
                     speaker: speaker,
                     elements: elementsInGroup
-                ))
+                )
+                groupedElements.append(groupedElement)
+                print("🎭 Created group \(groupedElement.id) with \(elementsInGroup.count) elements for speaker \(speaker.rawValue)")
                 
                 i = j
             } else {
                 // For actions or other standalone elements, create single-element groups
-                groupedElements.append(GroupedElement(
+                let groupedElement = GroupedElement(
                     id: element.id,
                     speaker: nil,
                     elements: [element]
-                ))
+                )
+                groupedElements.append(groupedElement)
+                print("🎭 Created single-element group for non-dialogue element: \(element.type)")
                 i += 1
             }
         }
         
+        print("🎭 Final result: \(groupedElements.count) groups")
         return groupedElements
+    }
+    
+    private func shouldShowSpeakerName(for index: Int) -> Bool {
+        let groupedElements = getGroupedElements()
+        guard index < groupedElements.count else { 
+            print("🏷️ shouldShowSpeakerName: index \(index) out of bounds, showing speaker name")
+            return true 
+        }
+        
+        let currentGroup = groupedElements[index]
+        
+        // Always show speaker name for first group
+        guard index > 0 else { 
+            print("🏷️ shouldShowSpeakerName: first group (\(currentGroup.id)), showing speaker name")
+            return true 
+        }
+        
+        let previousGroup = groupedElements[index - 1]
+        
+        // Show speaker name only if the speaker changed from the previous group
+        let shouldShow = currentGroup.speaker != previousGroup.speaker
+        print("🏷️ shouldShowSpeakerName: index \(index), current: \(currentGroup.speaker?.rawValue ?? "nil"), previous: \(previousGroup.speaker?.rawValue ?? "nil"), shouldShow: \(shouldShow)")
+        return shouldShow
+    }
+    
+    // MARK: - Helper Properties
+    private var shouldShowSpeakerPreview: Bool {
+        // Don't show speaker preview if we just added a parenthetical for the same speaker
+        // because it's obvious who the next dialogue will be for
+        if let lastElement = viewModel.screenplayElements.last,
+           lastElement.type == .parenthetical,
+           lastElement.speaker == viewModel.selectedSpeaker,
+           viewModel.selectedElementType == .dialogue {
+            print("🎯 Speaker preview: HIDE (just added parenthetical for same speaker)")
+            return false
+        }
+        
+        print("🎯 Speaker preview: SHOW (normal flow)")
+        return true
+    }
+    
+    private var shouldShowSpeakerSelector: Bool {
+        // Always show speaker selector when input area is visible
+        // This allows users to change speakers for the entire row even after adding parenthicals
+        print("🎯 Speaker selector: SHOW (always available for speaker switching)")
+        return true
     }
     
     // MARK: - Input Area View
@@ -527,7 +600,7 @@ struct DialogSceneView: View {
             )
             .padding(.top, 12)
             
-            if viewModel.selectedElementType.requiresSpeaker {
+            if viewModel.selectedElementType.requiresSpeaker && shouldShowSpeakerSelector {
                 SpeakerSelectorView(
                     selectedSpeaker: $viewModel.selectedSpeaker, 
                     viewModel: viewModel,
@@ -567,6 +640,14 @@ struct DialogSceneView: View {
     }
     
     // MARK: - Helper Methods
+    private func startEditingGroup(_ groupedElement: GroupedElement) {
+        // Add haptic feedback for selection
+        let impactFeedback = UIImpactFeedbackGenerator(style: .light)
+        impactFeedback.impactOccurred()
+        
+        viewModel.startEditingGroup(groupedElement)
+    }
+    
     private func cancelEditMode() {
         viewModel.cancelEditMode()
     }
@@ -880,7 +961,7 @@ struct TextInputView: View {
             case .dialogue:
                 return "Enter dialog...".localized
             case .parenthetical:
-                return "Type parenthetical text...".localized
+                return "(type here)".localized
             case .action:
                 return "Enter action...".localized
             }
@@ -899,16 +980,9 @@ struct TextInputView: View {
             .padding(.vertical, 12)
             .frame(minHeight: 44)
             .onChange(of: selectedElementType) { _, newType in
-                // When switching to parenthetical mode, start with opening parenthesis
-                if newType == .parenthetical && text.isEmpty {
-                    text = "("
-                    // Position cursor at the end
-                    DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
-                        if let textField = UIResponder.currentFirstResponder as? UITextField {
-                            let endPosition = textField.endOfDocument
-                            textField.selectedTextRange = textField.textRange(from: endPosition, to: endPosition)
-                        }
-                    }
+                // Clear text when switching element types to avoid confusion
+                if !text.isEmpty && newType != selectedElementType {
+                    text = ""
                 }
             }
     }

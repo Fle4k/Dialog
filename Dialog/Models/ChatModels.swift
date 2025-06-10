@@ -19,7 +19,7 @@ enum ScreenplayElementType: String, CaseIterable, Codable {
     }
     
     var requiresSpeaker: Bool {
-        return self == .dialogue
+        return self == .dialogue || self == .parenthetical
     }
 }
 
@@ -48,7 +48,7 @@ struct ScreenplayElement: Identifiable, Hashable, Codable {
     var isDialogueElement: Bool { type == .dialogue }
     var isParentheticalElement: Bool { type == .parenthetical }
     var isActionElement: Bool { type == .action }
-    var requiresSpeaker: Bool { type == .dialogue }
+    var requiresSpeaker: Bool { type == .dialogue || type == .parenthetical }
     
     // For backwards compatibility with existing SpeakerText usage
     var isSpeakerA: Bool {
