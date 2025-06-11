@@ -188,6 +188,14 @@ final class DialogViewModel: ObservableObject {
         let trimmedText = inputText.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !trimmedText.isEmpty else { return }
         
+        // STRICT VALIDATION: After a parenthetical, only dialogue is allowed
+        let lastElement = screenplayElements.last
+        if lastElement?.type == .parenthetical && selectedElementType != .dialogue {
+            // Force dialogue after parenthetical
+            selectedElementType = .dialogue
+            print("🚫 Enforcing dialogue-only rule: After parenthetical, only dialogue is allowed")
+        }
+        
         // Process content based on element type
         var processedContent = trimmedText
         
@@ -232,9 +240,9 @@ final class DialogViewModel: ObservableObject {
             }
             
         case .parenthetical:
-            // After parenthetical, return to dialogue for the SAME speaker (don't toggle)
+            // After parenthetical, ENFORCE dialogue only for the SAME speaker (don't toggle)
             selectedElementType = .dialogue
-            print("🔄 After parenthetical: keeping speaker as \(selectedSpeaker), elementType now \(selectedElementType)")
+            print("🔄 After parenthetical: enforcing dialogue only, keeping speaker as \(selectedSpeaker), elementType now \(selectedElementType)")
             
         case .action:
             // After action, go back to normal dialogue flow with next speaker

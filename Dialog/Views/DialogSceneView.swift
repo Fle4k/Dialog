@@ -976,6 +976,7 @@ struct TextInputView: View {
                 onSubmit()
             }
             .multilineTextAlignment(getTextAlignment())
+            .foregroundColor(.secondary.opacity(0.6))  // Make input text very subtle to keep focus on dialog scene
             .padding(.horizontal, 8)
             .padding(.vertical, 12)
             .frame(minHeight: 44)
@@ -1007,11 +1008,23 @@ struct ElementTypeSelectorView: View {
     @Binding var selectedElementType: ScreenplayElementType
     @ObservedObject var viewModel: DialogViewModel
     
+    // Check if last element is parenthetical to enforce dialogue-only rule
+    private var isLastElementParenthetical: Bool {
+        viewModel.screenplayElements.last?.type == .parenthetical
+    }
+    
     var body: some View {
         HStack(spacing: 12) {
             // Only show Parenthetical and Action buttons (skip dialogue)
             ForEach([ScreenplayElementType.parenthetical, ScreenplayElementType.action], id: \.self) { elementType in
                 Button(action: {
+                    // If last element is parenthetical, don't allow switching to non-dialogue
+                    if isLastElementParenthetical {
+                        // Force dialogue mode after parenthetical
+                        selectedElementType = .dialogue
+                        return
+                    }
+                    
                     // Toggle behavior: if already selected, go back to dialogue
                     if selectedElementType == elementType {
                         selectedElementType = .dialogue
@@ -1026,15 +1039,16 @@ struct ElementTypeSelectorView: View {
                     Text(elementType.displayName)
                         .font(.caption)
                         .fontWeight(selectedElementType == elementType ? .semibold : .regular)
-                        .foregroundColor(selectedElementType == elementType ? .white : .primary)
+                        .foregroundColor(selectedElementType == elementType ? .white : (isLastElementParenthetical ? .secondary : .primary))
                         .padding(.horizontal, 12)
                         .padding(.vertical, 6)
                         .background(
                             RoundedRectangle(cornerRadius: 16)
-                                .fill(selectedElementType == elementType ? Color.accentColor : Color(.systemGray5))
+                                .fill(selectedElementType == elementType ? Color.accentColor : (isLastElementParenthetical ? Color(.systemGray6) : Color(.systemGray5)))
                         )
                 }
                 .buttonStyle(PlainButtonStyle())
+                .disabled(isLastElementParenthetical)
             }
         }
         .padding(.horizontal)
