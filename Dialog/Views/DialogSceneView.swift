@@ -600,12 +600,13 @@ struct DialogSceneView: View {
             )
             .padding(.top, 12)
             
-            if viewModel.selectedElementType.requiresSpeaker && shouldShowSpeakerSelector {
+            if shouldShowSpeakerSelector {
                 SpeakerSelectorView(
                     selectedSpeaker: $viewModel.selectedSpeaker, 
                     viewModel: viewModel,
                     isInputFocused: $isInputFocused,
-                    isEditingMode: viewModel.isEditingText
+                    isEditingMode: viewModel.isEditingText,
+                    isDisabled: !viewModel.selectedElementType.requiresSpeaker
                 )
                 .padding(.horizontal)
                 .padding(.top, 8)
@@ -897,6 +898,7 @@ struct SpeakerSelectorView: View {
     let viewModel: DialogViewModel
     @FocusState.Binding var isInputFocused: Bool
     let isEditingMode: Bool
+    let isDisabled: Bool
     @State private var showingRenameAlert = false
     @State private var speakerToRename: Speaker? = nil
     @State private var newSpeakerName = ""
@@ -907,12 +909,13 @@ struct SpeakerSelectorView: View {
                 Text(speaker.displayName(customNames: viewModel.customSpeakerNames))
                     .font(.headline)
                     .fontWeight(.bold)
-                    .foregroundColor(selectedSpeaker == speaker ? .primary : Color(.systemGray4))
+                    .foregroundColor(isDisabled ? Color(.systemGray4) : (selectedSpeaker == speaker ? .primary : Color(.systemGray4)))
                     .frame(maxWidth: .infinity)
                     .frame(height: 32)
                     .contentShape(Rectangle())
-                    .opacity(isEditingMode ? (selectedSpeaker == speaker ? 1.0 : 0.7) : 1.0)
+                    .opacity(isDisabled ? 0.5 : (isEditingMode ? (selectedSpeaker == speaker ? 1.0 : 0.7) : 1.0))
                     .onTapGesture {
+                        guard !isDisabled else { return }
                         if isEditingMode {
                             // In edit mode, temporarily change the selected speaker
                             viewModel.setTemporarySpeaker(speaker)
@@ -924,6 +927,7 @@ struct SpeakerSelectorView: View {
                     .simultaneousGesture(
                         LongPressGesture(minimumDuration: 0.5)
                             .onEnded { _ in
+                                guard !isDisabled else { return }
                                 speakerToRename = speaker
                                 newSpeakerName = viewModel.customSpeakerNames[speaker] ?? ""
                                 showingRenameAlert = true
