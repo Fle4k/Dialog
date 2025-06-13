@@ -294,11 +294,11 @@ struct DialogSceneView: View {
                 } label: {
                     Group {
                         if let toolbarTransition = toolbarTransition {
-                            Image(systemName: "ellipsis")
+                            Image(systemName: "ellipsis.circle")
                                 .foregroundColor(.primary)
                                 .matchedGeometryEffect(id: "toolbarIcon", in: toolbarTransition)
                         } else {
-                            Image(systemName: "ellipsis")
+                            Image(systemName: "ellipsis.circle")
                                 .foregroundColor(.primary)
                         }
                     }
@@ -591,9 +591,6 @@ struct DialogSceneView: View {
     // MARK: - Input Area View
     private var inputAreaView: some View {
         VStack(spacing: 0) {
-            Color(.label)
-                .frame(height: 1)
-            
             ElementTypeSelectorView(
                 selectedElementType: $viewModel.selectedElementType,
                 viewModel: viewModel
@@ -608,7 +605,7 @@ struct DialogSceneView: View {
                     isEditingMode: viewModel.isEditingText,
                     isDisabled: !viewModel.selectedElementType.requiresSpeaker
                 )
-                .padding(.horizontal)
+                .padding(.horizontal, 16)  // Match the listRowInsets exactly
                 .padding(.top, 8)
             }
             
@@ -904,36 +901,60 @@ struct SpeakerSelectorView: View {
     @State private var newSpeakerName = ""
     
     var body: some View {
-        HStack(spacing: 12) {
-            ForEach(Speaker.allCases, id: \.self) { speaker in
-                Text(speaker.displayName(customNames: viewModel.customSpeakerNames))
-                    .font(.headline)
-                    .fontWeight(.bold)
-                    .foregroundColor(isDisabled ? Color(.systemGray4) : (selectedSpeaker == speaker ? .primary : Color(.systemGray4)))
-                    .frame(maxWidth: .infinity)
-                    .frame(height: 32)
-                    .contentShape(Rectangle())
-                    .opacity(isDisabled ? 0.5 : (isEditingMode ? (selectedSpeaker == speaker ? 1.0 : 0.7) : 1.0))
-                    .onTapGesture {
-                        guard !isDisabled else { return }
-                        if isEditingMode {
-                            // In edit mode, temporarily change the selected speaker
-                            viewModel.setTemporarySpeaker(speaker)
-                        } else {
-                            // In normal mode, just select the speaker for new text
-                            selectedSpeaker = speaker
-                        }
+        HStack {
+            // Speaker A - Left aligned
+            Text(Speaker.a.displayName(customNames: viewModel.customSpeakerNames))
+                .font(.headline)
+                .fontWeight(.bold)
+                .foregroundColor(isDisabled ? Color(.systemGray4) : (selectedSpeaker == .a ? .primary : Color(.systemGray4)))
+                .frame(height: 32)
+                .contentShape(Rectangle())
+                .opacity(isDisabled ? 0.5 : (isEditingMode ? (selectedSpeaker == .a ? 1.0 : 0.7) : 1.0))
+                .onTapGesture {
+                    guard !isDisabled else { return }
+                    if isEditingMode {
+                        viewModel.setTemporarySpeaker(.a)
+                    } else {
+                        selectedSpeaker = .a
                     }
-                    .simultaneousGesture(
-                        LongPressGesture(minimumDuration: 0.5)
-                            .onEnded { _ in
-                                guard !isDisabled else { return }
-                                speakerToRename = speaker
-                                newSpeakerName = viewModel.customSpeakerNames[speaker] ?? ""
-                                showingRenameAlert = true
-                            }
-                    )
-            }
+                }
+                .simultaneousGesture(
+                    LongPressGesture(minimumDuration: 0.5)
+                        .onEnded { _ in
+                            guard !isDisabled else { return }
+                            speakerToRename = .a
+                            newSpeakerName = viewModel.customSpeakerNames[.a] ?? ""
+                            showingRenameAlert = true
+                        }
+                )
+            
+            Spacer()
+            
+            // Speaker B - Right aligned
+            Text(Speaker.b.displayName(customNames: viewModel.customSpeakerNames))
+                .font(.headline)
+                .fontWeight(.bold)
+                .foregroundColor(isDisabled ? Color(.systemGray4) : (selectedSpeaker == .b ? .primary : Color(.systemGray4)))
+                .frame(height: 32)
+                .contentShape(Rectangle())
+                .opacity(isDisabled ? 0.5 : (isEditingMode ? (selectedSpeaker == .b ? 1.0 : 0.7) : 1.0))
+                .onTapGesture {
+                    guard !isDisabled else { return }
+                    if isEditingMode {
+                        viewModel.setTemporarySpeaker(.b)
+                    } else {
+                        selectedSpeaker = .b
+                    }
+                }
+                .simultaneousGesture(
+                    LongPressGesture(minimumDuration: 0.5)
+                        .onEnded { _ in
+                            guard !isDisabled else { return }
+                            speakerToRename = .b
+                            newSpeakerName = viewModel.customSpeakerNames[.b] ?? ""
+                            showingRenameAlert = true
+                        }
+                )
         }
         .alert("Rename Speaker".localized, isPresented: $showingRenameAlert) {
             TextField("Speaker name".localized, text: $newSpeakerName)
@@ -1018,41 +1039,24 @@ struct ElementTypeSelectorView: View {
     }
     
     var body: some View {
-        HStack(spacing: 12) {
-            // Only show Parenthetical and Action buttons (skip dialogue)
-            ForEach([ScreenplayElementType.parenthetical, ScreenplayElementType.action], id: \.self) { elementType in
-                Button(action: {
-                    // If last element is parenthetical, don't allow switching to non-dialogue
-                    if isLastElementParenthetical {
-                        // Force dialogue mode after parenthetical
-                        selectedElementType = .dialogue
-                        return
-                    }
-                    
-                    // Toggle behavior: if already selected, go back to dialogue
-                    if selectedElementType == elementType {
-                        selectedElementType = .dialogue
-                    } else {
-                        selectedElementType = elementType
-                    }
-                    
-                    // Add haptic feedback
-                    let impactFeedback = UIImpactFeedbackGenerator(style: .light)
-                    impactFeedback.impactOccurred()
-                }) {
-                    Text(elementType.displayName)
-                        .font(.caption)
-                        .fontWeight(selectedElementType == elementType ? .semibold : .regular)
-                        .foregroundColor(selectedElementType == elementType ? .white : (isLastElementParenthetical ? .secondary : .primary))
-                        .padding(.horizontal, 12)
-                        .padding(.vertical, 6)
-                        .background(
-                            RoundedRectangle(cornerRadius: 16)
-                                .fill(selectedElementType == elementType ? Color.accentColor : (isLastElementParenthetical ? Color(.systemGray6) : Color(.systemGray5)))
-                        )
+        VStack(spacing: 8) {
+            Picker("Element Type", selection: $selectedElementType) {
+                ForEach(ScreenplayElementType.allCases, id: \.self) { elementType in
+                    Text(elementType.displayName).tag(elementType)
                 }
-                .buttonStyle(PlainButtonStyle())
-                .disabled(isLastElementParenthetical)
+            }
+            .pickerStyle(SegmentedPickerStyle())
+            .disabled(isLastElementParenthetical)
+            .opacity(0.6)  // Make segmented control 60% transparent
+            .onChange(of: selectedElementType) { _, newType in
+                // Add haptic feedback when selection changes
+                let impactFeedback = UIImpactFeedbackGenerator(style: .light)
+                impactFeedback.impactOccurred()
+                
+                // If last element is parenthetical, don't allow switching to non-dialogue
+                if isLastElementParenthetical && newType != .dialogue {
+                    selectedElementType = .dialogue
+                }
             }
         }
         .padding(.horizontal)

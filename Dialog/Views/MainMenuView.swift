@@ -60,7 +60,7 @@ struct MainMenuView: View {
                             }
                         }
                     } label: {
-                        Image(systemName: "ellipsis")
+                        Image(systemName: "ellipsis.circle")
                             .foregroundColor(.primary)
                     }
                 }
