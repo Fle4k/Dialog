@@ -142,7 +142,15 @@ final class DialogViewModel: ObservableObject {
         let trimmedText = inputText.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !trimmedText.isEmpty else { return }
         
-        if isEditingText, let editingId = editingTextId {
+        if isEditingText, let editingGroupId = editingGroupId {
+            // We're editing a group - replace the first dialogue element with the new text
+            saveEditedGroup(groupId: editingGroupId, newText: trimmedText, newSpeaker: selectedSpeaker)
+            
+            // Add haptic feedback for successful edit confirmation
+            let notificationFeedback = UINotificationFeedbackGenerator()
+            notificationFeedback.notificationOccurred(.success)
+        } else if isEditingText, let editingId = editingTextId {
+            // Legacy editing for old textlines system
             // Store original values for undo
             if let index = textlines.firstIndex(where: { $0.id == editingId }) {
                 let originalText = textlines[index]
@@ -260,6 +268,42 @@ final class DialogViewModel: ObservableObject {
     }
     
     // MARK: - Edit Mode Methods
+    func saveEditedGroup(groupId: UUID, newText: String, newSpeaker: Speaker) {
+        // Find the element to edit - it should be the one with the matching groupId
+        // In our grouped system, the groupId matches the first element's ID in the group
+        guard let elementIndex = screenplayElements.firstIndex(where: { $0.id == groupId }) else { 
+            print("❌ Could not find element with groupId: \(groupId)")
+            return 
+        }
+        
+        let originalElement = screenplayElements[elementIndex]
+        
+        // Record undo action
+        undoManager.recordAction(.editScreenplayElement(
+            id: originalElement.id,
+            oldContent: originalElement.content,
+            newContent: newText,
+            oldSpeaker: originalElement.speaker,
+            newSpeaker: newSpeaker
+        ))
+        
+        // Update the element
+        screenplayElements[elementIndex] = ScreenplayElement(
+            id: originalElement.id,
+            type: originalElement.type,
+            content: newText,
+            speaker: newSpeaker
+        )
+        
+        // Update legacy textlines system if needed
+        if let textlineIndex = textlines.firstIndex(where: { $0.id == groupId }) {
+            textlines[textlineIndex] = SpeakerText(id: groupId, speaker: newSpeaker, text: newText)
+        }
+        
+        print("✅ Successfully edited element \(groupId): '\(newText)' by \(newSpeaker)")
+        setNextSpeakerBasedOnLastText()
+    }
+    
     func exitEditMode() {
         isEditingText = false
         editingTextId = nil
@@ -655,6 +699,24 @@ final class DialogViewModel: ObservableObject {
             screenplayElements.insert(element, at: originalIndex)
         } else {
             screenplayElements.append(element)
+        }
+    }
+    
+    func undoEditScreenplayElement(id: UUID, oldContent: String, oldSpeaker: Speaker?) {
+        guard let index = screenplayElements.firstIndex(where: { $0.id == id }) else { return }
+        let originalElement = screenplayElements[index]
+        
+        // Restore the original content and speaker
+        screenplayElements[index] = ScreenplayElement(
+            id: originalElement.id,
+            type: originalElement.type,
+            content: oldContent,
+            speaker: oldSpeaker
+        )
+        
+        // Also update legacy textlines system if needed
+        if let textlineIndex = textlines.firstIndex(where: { $0.id == id }) {
+            textlines[textlineIndex] = SpeakerText(id: id, speaker: oldSpeaker ?? .a, text: oldContent)
         }
     }
     

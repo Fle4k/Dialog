@@ -82,7 +82,7 @@ struct GroupedElementRowView: View {
                 if shouldShowSpeakerName {
                     Text(groupedElement.speaker?.displayName(customNames: customSpeakerNames) ?? "")
                         .font(.headline)
-                        .fontWeight(.semibold)
+                        .fontWeight(.black)
                 }
                 
                 // All elements for this speaker
@@ -95,6 +95,7 @@ struct GroupedElementRowView: View {
                     } else {
                         Text(element.content)
                             .font(.body)
+                            .fontWeight(.light)
                     }
                 }
             }
@@ -110,7 +111,7 @@ struct GroupedElementRowView: View {
                 if shouldShowSpeakerName {
                     Text(groupedElement.speaker?.displayName(customNames: customSpeakerNames) ?? "")
                         .font(.headline)
-                        .fontWeight(.semibold)
+                        .fontWeight(.black)
                 }
                 
                 // All elements for this speaker
@@ -124,6 +125,7 @@ struct GroupedElementRowView: View {
                     } else {
                         Text(element.content)
                             .font(.body)
+                            .fontWeight(.light)
                             .multilineTextAlignment(.trailing)
                     }
                 }
@@ -137,7 +139,7 @@ struct GroupedElementRowView: View {
             if let speaker = groupedElement.speaker, groupedElement.elements.first?.type != .action, shouldShowSpeakerName {
                 Text(speaker.displayName(customNames: customSpeakerNames))
                     .font(.headline)
-                    .fontWeight(.semibold)
+                    .fontWeight(.black)
             }
             
             // Show all elements for this group
@@ -151,6 +153,7 @@ struct GroupedElementRowView: View {
                 } else {
                     Text(element.content)
                         .font(.body)
+                        .fontWeight(element.type == .action ? .regular : .light)
                         .italic(element.type == .action)
                         .multilineTextAlignment(element.type == .action ? .leading : .center)
                         .frame(maxWidth: .infinity, alignment: element.type == .action ? .leading : .center)
@@ -378,12 +381,6 @@ struct DialogSceneView: View {
             } else {
                 emptyStateView
             }
-            
-            // Show selected speaker preview when input area is visible
-            if viewModel.showInputArea && viewModel.selectedElementType.requiresSpeaker {
-                selectedSpeakerPreview
-                    .opacity(shouldShowSpeakerPreview ? 1.0 : 0.0)
-            }
         }
         .listStyle(.plain)
         .contentMargins(.bottom, viewModel.showInputArea ? 60 : 0)
@@ -458,28 +455,7 @@ struct DialogSceneView: View {
         }
     }
     
-    private var selectedSpeakerPreview: some View {
-        GroupedElementRowView(
-            groupedElement: GroupedElement(
-                id: UUID(), // Temporary ID for preview
-                speaker: viewModel.selectedSpeaker,
-                elements: [ScreenplayElement(
-                    type: viewModel.selectedElementType,
-                    content: viewModel.inputText,
-                    speaker: viewModel.selectedSpeaker
-                )]
-            ),
-            customSpeakerNames: viewModel.customSpeakerNames,
-            centerLines: settingsManager.centerLinesEnabled,
-            viewModel: viewModel,
-            shouldShowSpeakerName: true, // Always show speaker name in preview
-            isBeingEdited: false // Preview is never being edited
-        )
-        .listRowBackground(Color.clear)
-        .listRowSeparator(.hidden)
-        .listRowInsets(EdgeInsets(top: 8, leading: 16, bottom: 8, trailing: 16))
-        .allowsHitTesting(false) // Disable interaction for preview
-    }
+
     
     // MARK: - Helper Methods
     private func getGroupedElements() -> [GroupedElement] {
@@ -566,21 +542,6 @@ struct DialogSceneView: View {
     }
     
     // MARK: - Helper Properties
-    private var shouldShowSpeakerPreview: Bool {
-        // Don't show speaker preview if we just added a parenthetical for the same speaker
-        // because it's obvious who the next dialogue will be for
-        if let lastElement = viewModel.screenplayElements.last,
-           lastElement.type == .parenthetical,
-           lastElement.speaker == viewModel.selectedSpeaker,
-           viewModel.selectedElementType == .dialogue {
-            print("🎯 Speaker preview: HIDE (just added parenthetical for same speaker)")
-            return false
-        }
-        
-        print("🎯 Speaker preview: SHOW (normal flow)")
-        return true
-    }
-    
     private var shouldShowSpeakerSelector: Bool {
         // Always show speaker selector when input area is visible
         // This allows users to change speakers for the entire row even after adding parenthicals
@@ -608,7 +569,7 @@ struct DialogSceneView: View {
                     isEditingMode: viewModel.isEditingText,
                     isDisabled: !viewModel.selectedElementType.requiresSpeaker
                 )
-                .padding(.horizontal)
+                .padding(.horizontal, 32) // Match dialogue row padding: listRowInsets(16) + GroupedElementRowView.padding(16) = 32
                 .padding(.top, 8)
             }
             
@@ -906,33 +867,46 @@ struct SpeakerSelectorView: View {
     var body: some View {
         HStack(spacing: 12) {
             ForEach(Speaker.allCases, id: \.self) { speaker in
-                Text(speaker.displayName(customNames: viewModel.customSpeakerNames))
-                    .font(.headline)
-                    .fontWeight(.bold)
-                    .foregroundColor(isDisabled ? Color(.systemGray4) : (selectedSpeaker == speaker ? .primary : Color(.systemGray4)))
-                    .frame(maxWidth: .infinity)
-                    .frame(height: 32)
-                    .contentShape(Rectangle())
-                    .opacity(isDisabled ? 0.5 : (isEditingMode ? (selectedSpeaker == speaker ? 1.0 : 0.7) : 1.0))
-                    .onTapGesture {
-                        guard !isDisabled else { return }
-                        if isEditingMode {
-                            // In edit mode, temporarily change the selected speaker
-                            viewModel.setTemporarySpeaker(speaker)
-                        } else {
-                            // In normal mode, just select the speaker for new text
-                            selectedSpeaker = speaker
-                        }
+                HStack {
+                    if speaker == .a {
+                        // A speaker - align text to the left
+                        Text(speaker.displayName(customNames: viewModel.customSpeakerNames))
+                            .font(.headline)
+                            .fontWeight(.bold)
+                            .foregroundColor(isDisabled ? Color(.systemGray4) : (selectedSpeaker == speaker ? .primary : Color(.systemGray4)))
+                        Spacer()
+                    } else {
+                        // B speaker - align text to the right
+                        Spacer()
+                        Text(speaker.displayName(customNames: viewModel.customSpeakerNames))
+                            .font(.headline)
+                            .fontWeight(.bold)
+                            .foregroundColor(isDisabled ? Color(.systemGray4) : (selectedSpeaker == speaker ? .primary : Color(.systemGray4)))
                     }
-                    .simultaneousGesture(
-                        LongPressGesture(minimumDuration: 0.5)
-                            .onEnded { _ in
-                                guard !isDisabled else { return }
-                                speakerToRename = speaker
-                                newSpeakerName = viewModel.customSpeakerNames[speaker] ?? ""
-                                showingRenameAlert = true
-                            }
-                    )
+                }
+                .frame(maxWidth: .infinity)
+                .frame(height: 32)
+                .contentShape(Rectangle())
+                .opacity(isDisabled ? 0.5 : (isEditingMode ? (selectedSpeaker == speaker ? 1.0 : 0.7) : 1.0))
+                .onTapGesture {
+                    guard !isDisabled else { return }
+                    if isEditingMode {
+                        // In edit mode, temporarily change the selected speaker
+                        viewModel.setTemporarySpeaker(speaker)
+                    } else {
+                        // In normal mode, just select the speaker for new text
+                        selectedSpeaker = speaker
+                    }
+                }
+                .simultaneousGesture(
+                    LongPressGesture(minimumDuration: 0.5)
+                        .onEnded { _ in
+                            guard !isDisabled else { return }
+                            speakerToRename = speaker
+                            newSpeakerName = viewModel.customSpeakerNames[speaker] ?? ""
+                            showingRenameAlert = true
+                        }
+                )
             }
         }
         .alert("Rename Speaker".localized, isPresented: $showingRenameAlert) {
@@ -965,7 +939,7 @@ struct TextInputView: View {
             case .dialogue:
                 return "Enter dialog...".localized
             case .parenthetical:
-                return "(type here)".localized
+                return "(enter parenthetical)".localized
             case .action:
                 return "Enter action...".localized
             }
