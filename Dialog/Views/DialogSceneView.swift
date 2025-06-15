@@ -82,7 +82,7 @@ struct GroupedElementRowView: View {
                 if shouldShowSpeakerName {
                     Text(groupedElement.speaker?.displayName(customNames: customSpeakerNames) ?? "")
                         .font(.headline)
-                        .fontWeight(.semibold)
+                        .fontWeight(.black)
                 }
                 
                 // All elements for this speaker
@@ -110,7 +110,7 @@ struct GroupedElementRowView: View {
                 if shouldShowSpeakerName {
                     Text(groupedElement.speaker?.displayName(customNames: customSpeakerNames) ?? "")
                         .font(.headline)
-                        .fontWeight(.semibold)
+                        .fontWeight(.black)
                 }
                 
                 // All elements for this speaker
@@ -137,7 +137,7 @@ struct GroupedElementRowView: View {
             if let speaker = groupedElement.speaker, groupedElement.elements.first?.type != .action, shouldShowSpeakerName {
                 Text(speaker.displayName(customNames: customSpeakerNames))
                     .font(.headline)
-                    .fontWeight(.semibold)
+                    .fontWeight(.black)
             }
             
             // Show all elements for this group
@@ -295,10 +295,12 @@ struct DialogSceneView: View {
                     Group {
                         if let toolbarTransition = toolbarTransition {
                             Image(systemName: "ellipsis.circle")
+                                .font(.system(size: 18, weight: .light))
                                 .foregroundColor(.primary)
                                 .matchedGeometryEffect(id: "toolbarIcon", in: toolbarTransition)
                         } else {
                             Image(systemName: "ellipsis.circle")
+                                .font(.system(size: 18, weight: .light))
                                 .foregroundColor(.primary)
                         }
                     }
@@ -307,7 +309,18 @@ struct DialogSceneView: View {
         }
         .navigationTitle("")
         .navigationBarTitleDisplayMode(.inline)
+        .navigationBarBackButtonHidden(true)
         .toolbar {
+            ToolbarItem(placement: .topBarLeading) {
+                Button {
+                    dismiss()
+                } label: {
+                    Image(systemName: "chevron.left.circle")
+                        .font(.system(size: 18, weight: .light))
+                        .foregroundColor(.primary)
+                }
+            }
+            
             ToolbarItem(placement: .principal) {
                 Button(action: {}) {
                     Text(viewModel.currentTitle.isEmpty ? "New Dialog" : viewModel.currentTitle)
@@ -905,7 +918,7 @@ struct SpeakerSelectorView: View {
             // Speaker A - Left aligned
             Text(Speaker.a.displayName(customNames: viewModel.customSpeakerNames))
                 .font(.headline)
-                .fontWeight(.bold)
+                .fontWeight(.black)
                 .foregroundColor(isDisabled ? Color(.systemGray4) : (selectedSpeaker == .a ? .primary : Color(.systemGray4)))
                 .frame(height: 32)
                 .contentShape(Rectangle())
@@ -933,7 +946,7 @@ struct SpeakerSelectorView: View {
             // Speaker B - Right aligned
             Text(Speaker.b.displayName(customNames: viewModel.customSpeakerNames))
                 .font(.headline)
-                .fontWeight(.bold)
+                .fontWeight(.black)
                 .foregroundColor(isDisabled ? Color(.systemGray4) : (selectedSpeaker == .b ? .primary : Color(.systemGray4)))
                 .frame(height: 32)
                 .contentShape(Rectangle())
