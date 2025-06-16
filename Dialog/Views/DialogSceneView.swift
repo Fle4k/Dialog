@@ -153,8 +153,7 @@ struct GroupedElementRowView: View {
                 } else {
                     Text(element.content)
                         .font(.body)
-                        .fontWeight(element.type == .action ? .regular : .light)
-                        .italic(element.type == .action)
+                        .fontWeight(element.type == .action ? .light : .light)
                         .multilineTextAlignment(element.type == .action ? .leading : .center)
                         .frame(maxWidth: .infinity, alignment: element.type == .action ? .leading : .center)
                 }
@@ -266,10 +265,7 @@ struct DialogSceneView: View {
                             centerLinesJustTapped = false
                         }
                     }) {
-                        Label(
-                            settingsManager.centerLinesEnabled ? "Dialog Left/Right".localized : "Center Dialog Lines".localized,
-                            systemImage: centerLinesJustTapped ? "checkmark.square" : "square"
-                        )
+                        Text(settingsManager.centerLinesEnabled ? "Dialog Left/Right".localized : "Center Dialog Lines".localized)
                     }
                     
                     Divider()
@@ -552,15 +548,7 @@ struct DialogSceneView: View {
     // MARK: - Input Area View
     private var inputAreaView: some View {
         VStack(spacing: 0) {
-            Color(.label)
-                .frame(height: 1)
-            
-            ElementTypeSelectorView(
-                selectedElementType: $viewModel.selectedElementType,
-                viewModel: viewModel
-            )
-            .padding(.top, 12)
-            
+            // A/B Speaker Selector (moved to top)
             if shouldShowSpeakerSelector {
                 SpeakerSelectorView(
                     selectedSpeaker: $viewModel.selectedSpeaker, 
@@ -570,18 +558,19 @@ struct DialogSceneView: View {
                     isDisabled: !viewModel.selectedElementType.requiresSpeaker
                 )
                 .padding(.horizontal, 32) // Match dialogue row padding: listRowInsets(16) + GroupedElementRowView.padding(16) = 32
-                .padding(.top, 8)
+                .padding(.top, 12)
             }
             
+            // Text Input Field (moved up)
             HStack {
-                            TextInputView(
-                text: $viewModel.inputText,
-                isInputFocused: $isInputFocused,
-                onSubmit: viewModel.addText,
-                isEditing: viewModel.isEditingText,
-                selectedSpeaker: viewModel.selectedSpeaker,
-                selectedElementType: viewModel.selectedElementType
-            )
+                TextInputView(
+                    text: $viewModel.inputText,
+                    isInputFocused: $isInputFocused,
+                    onSubmit: viewModel.addText,
+                    isEditing: viewModel.isEditingText,
+                    selectedSpeaker: viewModel.selectedSpeaker,
+                    selectedElementType: viewModel.selectedElementType
+                )
                 
                 if viewModel.isEditingText {
                     Button("Cancel".localized) {
@@ -592,6 +581,13 @@ struct DialogSceneView: View {
                 }
             }
             .padding(.horizontal)
+            .padding(.top, 2) // Reduced from 6 to 2 to match tight dialogue scene spacing
+            
+            // Element Type Selector (moved to bottom)
+            ElementTypeSelectorView(
+                selectedElementType: $viewModel.selectedElementType,
+                viewModel: viewModel
+            )
             .padding(.top, 8)
             .padding(.bottom)
         }
@@ -872,7 +868,7 @@ struct SpeakerSelectorView: View {
                         // A speaker - align text to the left
                         Text(speaker.displayName(customNames: viewModel.customSpeakerNames))
                             .font(.headline)
-                            .fontWeight(.bold)
+                            .fontWeight(.black)
                             .foregroundColor(isDisabled ? Color(.systemGray4) : (selectedSpeaker == speaker ? .primary : Color(.systemGray4)))
                         Spacer()
                     } else {
@@ -880,7 +876,7 @@ struct SpeakerSelectorView: View {
                         Spacer()
                         Text(speaker.displayName(customNames: viewModel.customSpeakerNames))
                             .font(.headline)
-                            .fontWeight(.bold)
+                            .fontWeight(.black)
                             .foregroundColor(isDisabled ? Color(.systemGray4) : (selectedSpeaker == speaker ? .primary : Color(.systemGray4)))
                     }
                 }
@@ -954,7 +950,7 @@ struct TextInputView: View {
                 onSubmit()
             }
             .multilineTextAlignment(getTextAlignment())
-            .foregroundColor(.secondary.opacity(0.6))  // Make input text very subtle to keep focus on dialog scene
+            .foregroundColor(.primary)  // System black in light mode, white in dark mode
             .padding(.horizontal, 8)
             .padding(.vertical, 12)
             .frame(minHeight: 44)
@@ -991,18 +987,16 @@ struct ElementTypeSelectorView: View {
         viewModel.screenplayElements.last?.type == .parenthetical
     }
     
+    // Only disable if last element is parenthetical AND there's no text being typed
+    private var shouldDisableNonDialogue: Bool {
+        isLastElementParenthetical && viewModel.inputText.isEmpty
+    }
+    
     var body: some View {
         HStack(spacing: 12) {
             // Only show Parenthetical and Action buttons (skip dialogue)
             ForEach([ScreenplayElementType.parenthetical, ScreenplayElementType.action], id: \.self) { elementType in
                 Button(action: {
-                    // If last element is parenthetical, don't allow switching to non-dialogue
-                    if isLastElementParenthetical {
-                        // Force dialogue mode after parenthetical
-                        selectedElementType = .dialogue
-                        return
-                    }
-                    
                     // Toggle behavior: if already selected, go back to dialogue
                     if selectedElementType == elementType {
                         selectedElementType = .dialogue
@@ -1017,16 +1011,16 @@ struct ElementTypeSelectorView: View {
                     Text(elementType.displayName)
                         .font(.caption)
                         .fontWeight(selectedElementType == elementType ? .semibold : .regular)
-                        .foregroundColor(selectedElementType == elementType ? .white : (isLastElementParenthetical ? .secondary : .primary))
-                        .padding(.horizontal, 12)
+                        .foregroundColor(selectedElementType == elementType ? .white : (shouldDisableNonDialogue ? .secondary : .primary))
+                        .frame(width: 100) // Fixed width to make both buttons the same size
                         .padding(.vertical, 6)
                         .background(
                             RoundedRectangle(cornerRadius: 16)
-                                .fill(selectedElementType == elementType ? Color.accentColor : (isLastElementParenthetical ? Color(.systemGray6) : Color(.systemGray5)))
+                                .fill(selectedElementType == elementType ? Color.accentColor : (shouldDisableNonDialogue ? Color(.systemGray6) : Color(.systemGray5)))
                         )
                 }
                 .buttonStyle(PlainButtonStyle())
-                .disabled(isLastElementParenthetical)
+                .disabled(shouldDisableNonDialogue)
             }
         }
         .padding(.horizontal)

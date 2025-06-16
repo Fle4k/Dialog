@@ -104,14 +104,10 @@ final class DialogViewModel: ObservableObject {
         editingGroupId = groupedElement.id
         editingOriginalSpeaker = groupedElement.speaker
         
-        // For now, edit the first dialogue element in the group
-        if let firstDialogue = groupedElement.elements.first(where: { $0.type == .dialogue }) {
-            inputText = firstDialogue.content
-            selectedSpeaker = firstDialogue.speaker ?? groupedElement.speaker ?? .a
-            selectedElementType = .dialogue
-        } else if let firstElement = groupedElement.elements.first {
+        // Edit the first element in the group (whether dialogue, parenthetical, or action)
+        if let firstElement = groupedElement.elements.first {
             inputText = firstElement.content
-            selectedSpeaker = firstElement.speaker ?? .a
+            selectedSpeaker = firstElement.speaker ?? groupedElement.speaker ?? .a
             selectedElementType = firstElement.type
         }
         
@@ -199,8 +195,13 @@ final class DialogViewModel: ObservableObject {
         // STRICT VALIDATION: After a parenthetical, only dialogue is allowed
         let lastElement = screenplayElements.last
         if lastElement?.type == .parenthetical && selectedElementType != .dialogue {
-            // Force dialogue after parenthetical
+            // Force dialogue after parenthetical with haptic feedback
             selectedElementType = .dialogue
+            
+            // Provide haptic feedback to indicate the rule enforcement
+            let notificationFeedback = UINotificationFeedbackGenerator()
+            notificationFeedback.notificationOccurred(.warning)
+            
             print("🚫 Enforcing dialogue-only rule: After parenthetical, only dialogue is allowed")
         }
         
@@ -554,38 +555,66 @@ final class DialogViewModel: ObservableObject {
         // Use new screenplay elements if available, otherwise fall back to legacy textlines
         let elementsToExport = screenplayElements.isEmpty ? textlines.map { $0.toScreenplayElement() } : screenplayElements
         
-        let escapedElements = elementsToExport.map { element in
+        var fdxElements: [String] = []
+        var currentSpeaker: Speaker? = nil
+        
+        for element in elementsToExport {
             let escapedContent = escapeXMLText(element.content)
             
-                         switch element.type {
-             case .dialogue:
-                return """
+            switch element.type {
+            case .dialogue:
+                // Add character name if speaker changed or is first dialogue
+                if let speaker = element.speaker, speaker != currentSpeaker {
+                    let speakerName = escapeXMLText(speaker.displayName(customNames: customSpeakerNames))
+                    fdxElements.append("""
+                    <Paragraph Type="Character">
+                    <Text>\(speakerName)</Text>
+                    </Paragraph>
+                    """)
+                    currentSpeaker = speaker
+                }
+                
+                fdxElements.append("""
                 <Paragraph Type="Dialogue">
                 <Text>\(escapedContent)</Text>
                 </Paragraph>
-                """
+                """)
                 
             case .parenthetical:
-                return """
+                // Add character name if speaker changed
+                if let speaker = element.speaker, speaker != currentSpeaker {
+                    let speakerName = escapeXMLText(speaker.displayName(customNames: customSpeakerNames))
+                    fdxElements.append("""
+                    <Paragraph Type="Character">
+                    <Text>\(speakerName)</Text>
+                    </Paragraph>
+                    """)
+                    currentSpeaker = speaker
+                }
+                
+                // Wrap parenthetical content in parentheses
+                fdxElements.append("""
                 <Paragraph Type="Parenthetical">
-                <Text>\(escapedContent)</Text>
+                <Text>(\(escapedContent))</Text>
                 </Paragraph>
-                """
+                """)
                 
             case .action:
-                return """
+                // Reset current speaker for actions
+                currentSpeaker = nil
+                fdxElements.append("""
                 <Paragraph Type="Action">
                 <Text>\(escapedContent)</Text>
                 </Paragraph>
-                """
+                """)
             }
-        }.joined(separator: "\n")
+        }
         
         let fdxContent = """
         <?xml version="1.0" encoding="UTF-8"?>
         <FinalDraft DocumentType="Script" Template="No" Version="1">
         <Content>
-        \(escapedElements)
+        \(fdxElements.joined(separator: "\n"))
         </Content>
         </FinalDraft>
         """
