@@ -67,21 +67,21 @@ struct DialogSession: Identifiable, Codable, FileDocument {
     }
     
     static func generateTitle(from textlines: [SpeakerText]) -> String {
-        guard !textlines.isEmpty else { return "New Dialog" }
+        guard !textlines.isEmpty else { return "New Dialog".localized }
         
         let firstText = textlines[0].text
         let words = firstText.components(separatedBy: .whitespacesAndNewlines)
         let titleWords = Array(words.prefix(3))
         
         if titleWords.isEmpty {
-            return "New Dialog"
+            return "New Dialog".localized
         }
         
         return titleWords.joined(separator: " ") + (words.count > 3 ? "..." : "")
     }
     
     static func generateTitle(from elements: [ScreenplayElement]) -> String {
-        guard !elements.isEmpty else { return "New Screenplay" }
+        guard !elements.isEmpty else { return "New Screenplay".localized }
         
         // Find the first meaningful content (dialogue or action)
         let meaningfulElement = elements.first { element in
@@ -93,14 +93,14 @@ struct DialogSession: Identifiable, Codable, FileDocument {
             let firstContent = elements[0].content
             let words = firstContent.components(separatedBy: .whitespacesAndNewlines)
             let titleWords = Array(words.prefix(3))
-            return titleWords.isEmpty ? "New Screenplay" : titleWords.joined(separator: " ") + (words.count > 3 ? "..." : "")
+            return titleWords.isEmpty ? "New Screenplay".localized : titleWords.joined(separator: " ") + (words.count > 3 ? "..." : "")
         }
         
         let words = element.content.components(separatedBy: .whitespacesAndNewlines)
         let titleWords = Array(words.prefix(3))
         
         if titleWords.isEmpty {
-            return "New Screenplay"
+            return "New Screenplay".localized
         }
         
         return titleWords.joined(separator: " ") + (words.count > 3 ? "..." : "")

@@ -189,6 +189,8 @@ final class DialogViewModel: ObservableObject {
         let trimmedText = inputText.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !trimmedText.isEmpty else { return }
         
+        print("🟢 addScreenplayElement START: selectedElementType=\(selectedElementType), selectedSpeaker=\(selectedSpeaker)")
+        
         // STRICT VALIDATION: After a parenthetical, only dialogue is allowed
         let lastElement = screenplayElements.last
         if lastElement?.type == .parenthetical && selectedElementType != .dialogue {
@@ -221,8 +223,12 @@ final class DialogViewModel: ObservableObject {
         
         screenplayElements.append(element)
         
+        print("🟡 addScreenplayElement BEFORE handleElementTypeSpecificLogic: selectedElementType=\(selectedElementType), selectedSpeaker=\(selectedSpeaker)")
+        
         // Handle element type specific logic
         handleElementTypeSpecificLogic()
+        
+        print("🔴 addScreenplayElement END: selectedElementType=\(selectedElementType), selectedSpeaker=\(selectedSpeaker)")
     }
     
     private func handleSpeakerToggle() {
@@ -236,8 +242,9 @@ final class DialogViewModel: ObservableObject {
         switch selectedElementType {
         case .dialogue:
             // Check if the previous element was a parenthetical from the same speaker
-            let lastElement = screenplayElements.last
-            let isFollowingParenthetical = lastElement?.type == .parenthetical && lastElement?.speaker == selectedSpeaker
+            // Check the second-to-last element (since we just added the current element)
+            let previousElement = screenplayElements.count >= 2 ? screenplayElements[screenplayElements.count - 2] : nil
+            let isFollowingParenthetical = previousElement?.type == .parenthetical && previousElement?.speaker == selectedSpeaker
             
             if isFollowingParenthetical {
                 // Don't toggle speaker - this is continuation of the same speaker's dialogue after parenthetical
@@ -258,6 +265,24 @@ final class DialogViewModel: ObservableObject {
             selectedElementType = .dialogue
             selectedSpeaker.toggle()
             print("🔄 After action: toggled speaker to \(selectedSpeaker), elementType now \(selectedElementType)")
+            
+        case .offScreen, .voiceOver, .text:
+            // These are dialogue variants - use same logic as dialogue
+            let originalType = selectedElementType
+            // Check the second-to-last element (since we just added the current element)
+            let previousElement = screenplayElements.count >= 2 ? screenplayElements[screenplayElements.count - 2] : nil
+            let isFollowingParenthetical = previousElement?.type == .parenthetical && previousElement?.speaker == selectedSpeaker
+            
+            selectedElementType = .dialogue
+            
+            if isFollowingParenthetical {
+                // Don't toggle speaker - this is continuation of the same speaker after parenthetical
+                print("🔄 After \(originalType) (following parenthetical): reset to dialogue, keeping speaker as \(selectedSpeaker)")
+            } else {
+                // Normal flow - toggle to other speaker
+                selectedSpeaker.toggle()
+                print("🔄 After \(originalType): reset to dialogue, toggled speaker to \(selectedSpeaker)")
+            }
         }
     }
     
@@ -429,8 +454,8 @@ final class DialogViewModel: ObservableObject {
     
     // MARK: - Speaker Management
     func setNextSpeakerBasedOnLastText() {
-        // Look for the last dialogue element to determine next speaker
-        if let lastDialogue = screenplayElements.last(where: { $0.type == .dialogue }),
+        // Look for the last dialogue-like element (dialogue, off screen, voice over, text) to determine next speaker
+        if let lastDialogue = screenplayElements.last(where: { $0.type.requiresSpeaker && $0.type != .parenthetical }),
            let speaker = lastDialogue.speaker {
             // Set the speaker to the opposite of the last dialogue's speaker
             selectedSpeaker = speaker == .a ? .b : .a
@@ -563,7 +588,7 @@ final class DialogViewModel: ObservableObject {
             let escapedContent = escapeXMLText(element.content)
             
             switch element.type {
-            case .dialogue:
+            case .dialogue, .offScreen, .voiceOver, .text:
                 // Add character name if speaker changed or is first dialogue
                 if let speaker = element.speaker {
                     var shouldAddCharacterName = false
@@ -579,23 +604,30 @@ final class DialogViewModel: ObservableObject {
                         }
                     }
                     
-                    if shouldAddCharacterName {
-                        let speakerName = escapeXMLText(speaker.displayName(customNames: customSpeakerNames))
-                        let characterName = shouldShowContd ? "\(speakerName) (CONT'D)" : speakerName
-                        fdxElements.append("""
-                        <Paragraph Type="Character">
-                        <Text>\(characterName)</Text>
-                        </Paragraph>
-                        """)
-                        currentSpeaker = speaker
-                    }
+                                    if shouldAddCharacterName {
+                    let speakerName = escapeXMLText(speaker.displayName(customNames: customSpeakerNames))
+                    var characterName = speakerName
+                    
+                                    if shouldShowContd {
+                    characterName = "\(speakerName) (CONT'D)"
+                } else if let extensionString = element.type.characterExtension {
+                    characterName = "\(speakerName) \(extensionString)"
                 }
                 
                 fdxElements.append("""
-                <Paragraph Type="Dialogue">
-                <Text>\(escapedContent)</Text>
+                <Paragraph Type="Character">
+                <Text>\(characterName)</Text>
                 </Paragraph>
                 """)
+                currentSpeaker = speaker
+            }
+        }
+        
+        fdxElements.append("""
+        <Paragraph Type="Dialogue">
+        <Text>\(escapedContent)</Text>
+        </Paragraph>
+        """)
                 
             case .parenthetical:
                 // Add character name if speaker changed
@@ -612,24 +644,31 @@ final class DialogViewModel: ObservableObject {
                         }
                     }
                     
-                    if shouldAddCharacterName {
-                        let speakerName = escapeXMLText(speaker.displayName(customNames: customSpeakerNames))
-                        let characterName = shouldShowContd ? "\(speakerName) (CONT'D)" : speakerName
-                        fdxElements.append("""
-                        <Paragraph Type="Character">
-                        <Text>\(characterName)</Text>
-                        </Paragraph>
-                        """)
-                        currentSpeaker = speaker
-                    }
+                                    if shouldAddCharacterName {
+                    let speakerName = escapeXMLText(speaker.displayName(customNames: customSpeakerNames))
+                    var characterName = speakerName
+                    
+                                    if shouldShowContd {
+                    characterName = "\(speakerName) (CONT'D)"
+                } else if let extensionString = element.type.characterExtension {
+                    characterName = "\(speakerName) \(extensionString)"
                 }
                 
-                // Wrap parenthetical content in parentheses
                 fdxElements.append("""
-                <Paragraph Type="Parenthetical">
-                <Text>(\(escapedContent))</Text>
+                <Paragraph Type="Character">
+                <Text>\(characterName)</Text>
                 </Paragraph>
                 """)
+                currentSpeaker = speaker
+            }
+        }
+        
+        // Wrap parenthetical content in parentheses
+        fdxElements.append("""
+        <Paragraph Type="Parenthetical">
+        <Text>(\(escapedContent))</Text>
+        </Paragraph>
+        """)
                 
             case .action:
                 // Remember the last speaker before this action

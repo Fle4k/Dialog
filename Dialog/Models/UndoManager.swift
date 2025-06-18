@@ -35,29 +35,29 @@ class AppUndoManager: ObservableObject {
     
     var lastActionDescription: String {
         if canRedo {
-            return "Redo"
+            return "Redo".localized
         } else if let action = undoAction {
             switch action {
             case .addText(_):
-                return "Add Text"
+                return "Add Text".localized
             case .deleteText(_, _):
-                return "Delete Text"
+                return "Delete Text".localized
             case .editText(_, _, _, _, _):
-                return "Edit Text"
+                return "Edit Text".localized
             case .toggleFlag(_, let wasAdd):
-                return wasAdd ? "Flag Text" : "Unflag Text"
+                return wasAdd ? "Flag Text".localized : "Unflag Text".localized
             case .renameSpeaker(_, _, _):
-                return "Rename Speaker"
+                return "Rename Speaker".localized
             case .deleteSession(_, _):
-                return "Delete Dialog"
+                return "Delete Dialog".localized
             case .renameSession(_, _, _):
-                return "Rename Dialog"
+                return "Rename Dialog".localized
             case .addScreenplayElement(_):
-                return "Add Element"
+                return "Add Element".localized
             case .deleteScreenplayElement(_, _):
-                return "Delete Element"
+                return "Delete Element".localized
             case .editScreenplayElement(_, _, _, _, _):
-                return "Edit Element"
+                return "Edit Element".localized
             }
         } else {
             return ""

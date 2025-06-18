@@ -27,7 +27,7 @@ extension DialogSession {
         self.id = UUID()
         self.createdAt = Date()
         self.lastModified = Date()
-        self.title = "New Dialog"
+        self.title = "New Dialog".localized
         self.textlines = []
         self.screenplayElements = []
         self.customSpeakerNames = [:]

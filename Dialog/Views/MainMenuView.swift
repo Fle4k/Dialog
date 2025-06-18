@@ -83,7 +83,7 @@ struct MainMenuView: View {
                 viewModel.saveSession(dialogViewModel)
             }
         } label: {
-            Text("NEW DIALOG")
+                            Text("NEW DIALOG".localized)
                 .font(.system(size: 20))
                 .fontWeight(.black)
                 .foregroundColor(.primary)

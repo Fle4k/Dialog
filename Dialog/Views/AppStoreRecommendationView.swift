@@ -35,7 +35,7 @@ struct AppStoreRecommendationView: View {
             Spacer()
             
             // Get Button
-            Button("GET") {
+            Button("GET".localized) {
                 if let url = URL(string: appStoreURL) {
                     UIApplication.shared.open(url)
                 }
@@ -73,11 +73,11 @@ struct CharacterCreatorRecommendationView: View {
             
             // App Info
             VStack(alignment: .leading, spacing: 2) {
-                Text("Character Creator")
+                Text("Character Creator".localized)
                     .font(.body)
                     .fontWeight(.medium)
                 
-                Text("Curated, authentic German & British names.")
+                Text("Curated, authentic German & British names.".localized)
                     .font(.caption)
                     .foregroundColor(.secondary)
             }
@@ -85,7 +85,7 @@ struct CharacterCreatorRecommendationView: View {
             Spacer()
             
             // Get Button
-            Button("GET") {
+            Button("GET".localized) {
                 if let url = URL(string: "https://apps.apple.com/de/app/character-creator/id6744124123?l=en-GB") {
                     openURL(url)
                 }

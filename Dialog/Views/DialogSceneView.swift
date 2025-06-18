@@ -92,6 +92,12 @@ struct GroupedElementRowView: View {
                                 .fontWeight(.light)
                                 .italic()
                                 .foregroundColor(.secondary)
+                        } else if let extensionString = groupedElement.elements.first?.type.characterExtension {
+                            Text(extensionString)
+                                .font(.headline)
+                                .fontWeight(.light)
+                                .italic()
+                                .foregroundColor(.secondary)
                         }
                     }
                 }
@@ -131,6 +137,12 @@ struct GroupedElementRowView: View {
                                 .fontWeight(.light)
                                 .italic()
                                 .foregroundColor(.secondary)
+                        } else if let extensionString = groupedElement.elements.first?.type.characterExtension {
+                            Text(extensionString)
+                                .font(.headline)
+                                .fontWeight(.light)
+                                .italic()
+                                .foregroundColor(.secondary)
                         }
                     }
                 }
@@ -165,6 +177,12 @@ struct GroupedElementRowView: View {
                         .fontWeight(.black)
                     if shouldShowContd {
                         Text("(CONT'D)")
+                            .font(.headline)
+                            .fontWeight(.light)
+                            .italic()
+                            .foregroundColor(.secondary)
+                    } else if let extensionString = groupedElement.elements.first?.type.characterExtension {
+                        Text(extensionString)
                             .font(.headline)
                             .fontWeight(.light)
                             .italic()
@@ -344,7 +362,7 @@ struct DialogSceneView: View {
         .toolbar {
             ToolbarItem(placement: .principal) {
                 Button(action: {}) {
-                    Text(viewModel.currentTitle.isEmpty ? "New Dialog" : viewModel.currentTitle)
+                    Text(viewModel.currentTitle.isEmpty ? "New Dialog".localized : viewModel.currentTitle)
                         .font(.headline)
                         .fontWeight(.semibold)
                         .foregroundColor(.primary)
@@ -357,7 +375,7 @@ struct DialogSceneView: View {
                             let impactFeedback = UIImpactFeedbackGenerator(style: .light)
                             impactFeedback.impactOccurred()
                             
-                            newTitle = viewModel.currentTitle.isEmpty ? "New Dialog" : viewModel.currentTitle
+                            newTitle = viewModel.currentTitle.isEmpty ? "New Dialog".localized : viewModel.currentTitle
                             showingTitleRenameAlert = true
                         }
                 )
@@ -521,7 +539,7 @@ struct DialogSceneView: View {
             let element = viewModel.screenplayElements[i]
             
             // Check if this element should start a new group (speaker with potential parenthetical)
-            if (element.type == .dialogue || element.type == .parenthetical) && element.speaker != nil {
+            if element.type.requiresSpeaker && element.speaker != nil {
                 let speaker = element.speaker!
                 var elementsInGroup: [ScreenplayElement] = []
                 
@@ -533,8 +551,8 @@ struct DialogSceneView: View {
                 var j = i + 1
                 while j < viewModel.screenplayElements.count {
                     let nextElement = viewModel.screenplayElements[j]
-                    // Group together if same speaker and either dialogue or parenthetical
-                    if nextElement.speaker == speaker && (nextElement.type == .dialogue || nextElement.type == .parenthetical) {
+                    // Group together if same speaker and requires speaker
+                    if nextElement.speaker == speaker && nextElement.type.requiresSpeaker {
                         elementsInGroup.append(nextElement)
                         print("🎭 Adding element to group: speaker \(speaker.rawValue), type: \(nextElement.type)")
                         j += 1
@@ -904,12 +922,20 @@ struct ScreenplayElementRowView: View {
             
         case .action:
             EmptyView()
+            
+        case .offScreen, .voiceOver, .text:
+            // Show speaker name for these dialogue variants
+            if let speaker = element.speaker {
+                Text(speaker.displayName(customNames: customSpeakerNames))
+                    .font(.headline)
+                    .fontWeight(.black)
+            }
         }
     }
     
     // Helper to determine if we should show speaker name for any speaker element
     private var shouldShowSpeakerName: Bool {
-        guard element.type == .dialogue || element.type == .parenthetical,
+        guard element.type.requiresSpeaker,
               let currentSpeaker = element.speaker else {
             return false
         }
@@ -932,6 +958,8 @@ struct ScreenplayElementRowView: View {
             return .body  // Same size as dialogue for better readability
         case .action:
             return .body
+        case .offScreen, .voiceOver, .text:
+            return .body  // Same as dialogue
         }
     }
     
@@ -943,6 +971,8 @@ struct ScreenplayElementRowView: View {
             return .regular
         case .action:
             return .regular
+        case .offScreen, .voiceOver, .text:
+            return .light  // Same as dialogue
         }
     }
 }
@@ -1035,6 +1065,12 @@ struct TextInputView: View {
                 return "(enter parenthetical)".localized
             case .action:
                 return "Enter action...".localized
+            case .offScreen:
+                return "Enter off screen dialog...".localized
+            case .voiceOver:
+                return "Enter voice over...".localized
+            case .text:
+                return "Enter text dialog...".localized
             }
         }
     }
@@ -1071,6 +1107,8 @@ struct TextInputView: View {
             return selectedSpeaker == .b ? .trailing : .leading  // Align with speaker
         case .action:
             return .leading
+        case .offScreen, .voiceOver, .text:
+            return selectedSpeaker == .b ? .trailing : .leading  // Same as dialogue
         }
     }
 }
@@ -1089,38 +1127,67 @@ struct ElementTypeSelectorView: View {
         isLastElementParenthetical && viewModel.inputText.isEmpty
     }
     
+    // Define the order of element types as requested: Action, Parenthetical, Off Screen, Voice Over, Text
+    private var elementTypes: [ScreenplayElementType] {
+        [.action, .parenthetical, .offScreen, .voiceOver, .text]
+    }
+    
     var body: some View {
-        HStack(spacing: 12) {
-            // Only show Parenthetical and Action buttons (skip dialogue)
-            ForEach([ScreenplayElementType.parenthetical, ScreenplayElementType.action], id: \.self) { elementType in
-                Button(action: {
-                    // Toggle behavior: if already selected, go back to dialogue
-                    if selectedElementType == elementType {
-                        selectedElementType = .dialogue
-                    } else {
-                        selectedElementType = elementType
+        ScrollView(.horizontal, showsIndicators: false) {
+            HStack(spacing: 12) {
+                ForEach(elementTypes, id: \.self) { elementType in
+                    Button(action: {
+                        // Toggle behavior: if already selected, go back to dialogue
+                        if selectedElementType == elementType {
+                            selectedElementType = .dialogue
+                        } else {
+                            selectedElementType = elementType
+                        }
+                        
+                        // Add haptic feedback
+                        let impactFeedback = UIImpactFeedbackGenerator(style: .light)
+                        impactFeedback.impactOccurred()
+                    }) {
+                        Text(elementType.displayName)
+                            .font(.caption)
+                            .fontWeight(selectedElementType == elementType ? .semibold : .regular)
+                            .foregroundColor(buttonTextColor(for: elementType))
+                            .frame(minWidth: 80) // Minimum width, but allow content to determine size
+                            .padding(.vertical, 6)
+                            .padding(.horizontal, 12)
+                            .background(
+                                RoundedRectangle(cornerRadius: 16)
+                                    .fill(buttonBackgroundColor(for: elementType))
+                            )
                     }
-                    
-                    // Add haptic feedback
-                    let impactFeedback = UIImpactFeedbackGenerator(style: .light)
-                    impactFeedback.impactOccurred()
-                }) {
-                    Text(elementType.displayName)
-                        .font(.caption)
-                        .fontWeight(selectedElementType == elementType ? .semibold : .regular)
-                        .foregroundColor(selectedElementType == elementType ? .white : (shouldDisableNonDialogue ? .secondary : .primary))
-                        .frame(width: 100) // Fixed width to make both buttons the same size
-                        .padding(.vertical, 6)
-                        .background(
-                            RoundedRectangle(cornerRadius: 16)
-                                .fill(selectedElementType == elementType ? Color.accentColor : (shouldDisableNonDialogue ? Color(.systemGray6) : Color(.systemGray5)))
-                        )
+                    .buttonStyle(PlainButtonStyle())
+                    .disabled(shouldDisableNonDialogue)
                 }
-                .buttonStyle(PlainButtonStyle())
-                .disabled(shouldDisableNonDialogue)
             }
+            .padding(.horizontal)
         }
-        .padding(.horizontal)
+    }
+    
+    private func buttonTextColor(for elementType: ScreenplayElementType) -> Color {
+        if shouldDisableNonDialogue {
+            return .secondary
+        } else if selectedElementType == elementType {
+            // Use adaptive color that works in both light and dark mode
+            return Color(.systemBackground)
+        } else {
+            return .primary
+        }
+    }
+    
+    private func buttonBackgroundColor(for elementType: ScreenplayElementType) -> Color {
+        if shouldDisableNonDialogue {
+            return Color(.systemGray5)
+        } else if selectedElementType == elementType {
+            return .accentColor
+        } else {
+            // Use a more prominent background for better contrast
+            return Color(.systemGray3)
+        }
     }
 }
 

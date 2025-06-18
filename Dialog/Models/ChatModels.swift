@@ -5,21 +5,43 @@ enum ScreenplayElementType: String, CaseIterable, Codable {
     case dialogue = "Dialogue"
     case parenthetical = "Parenthetical"
     case action = "Action"
+    case offScreen = "Off Screen"
+    case voiceOver = "Voice Over"
+    case text = "Text"
     
     var displayName: String {
         switch self {
-        case .dialogue: return "Dialog"
-        case .parenthetical: return "Parenthetical"
-        case .action: return "Action"
+        case .dialogue: return "Dialog".localized
+        case .parenthetical: return "Parenthetical".localized
+        case .action: return "Action".localized
+        case .offScreen: return "Off Screen".localized
+        case .voiceOver: return "Voice Over".localized
+        case .text: return "Text".localized
+        }
+    }
+    
+    var characterExtension: String? {
+        switch self {
+        case .offScreen: return "(O.S.)"
+        case .voiceOver: return "(V.O.)"
+        case .text: return "(TEXT)"
+        default: return nil
         }
     }
     
     var fdxElementType: String {
-        return rawValue
+        switch self {
+        case .dialogue, .offScreen, .voiceOver, .text:
+            return "Dialogue"
+        case .parenthetical:
+            return "Parenthetical"
+        case .action:
+            return "Action"
+        }
     }
     
     var requiresSpeaker: Bool {
-        return self == .dialogue || self == .parenthetical
+        return self == .dialogue || self == .parenthetical || self == .offScreen || self == .voiceOver || self == .text
     }
 }
 
