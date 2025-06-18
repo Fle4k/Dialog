@@ -171,12 +171,9 @@ final class DialogViewModel: ObservableObject {
             addScreenplayElement()
             
             // Only add to legacy textlines system for dialogue elements (for backwards compatibility)
+            // Note: No undo recording here since addScreenplayElement() already handles undo
             if selectedElementType == .dialogue {
                 let speakerText = SpeakerText(speaker: selectedSpeaker, text: trimmedText)
-                
-                // Record undo action
-                undoManager.recordAction(.addText(speakerText))
-                
                 textlines.append(speakerText)
             }
         }
@@ -218,6 +215,9 @@ final class DialogViewModel: ObservableObject {
         // Parentheticals need a speaker (they belong to someone)
         let speaker = (selectedElementType == .parenthetical || selectedElementType.requiresSpeaker) ? selectedSpeaker : nil
         let element = ScreenplayElement(type: selectedElementType, content: processedContent, speaker: speaker)
+        
+        // Record undo action for screenplay element
+        undoManager.recordAction(.addScreenplayElement(element))
         
         screenplayElements.append(element)
         
@@ -722,6 +722,75 @@ final class DialogViewModel: ObservableObject {
         customSpeakerNames[speaker] = oldName
     }
     
+    // MARK: - Redo Methods
+    func redoAddText(_ speakerText: SpeakerText) {
+        textlines.append(speakerText)
+    }
+    
+    func redoDeleteText(_ speakerText: SpeakerText) {
+        textlines.removeAll { $0.id == speakerText.id }
+        flaggedTextIds.remove(speakerText.id)
+    }
+    
+    func redoEditText(id: UUID, newText: String, newSpeaker: Speaker) {
+        guard let index = textlines.firstIndex(where: { $0.id == id }) else { return }
+        let updatedText = SpeakerText(id: id, speaker: newSpeaker, text: newText)
+        textlines[index] = updatedText
+    }
+    
+    func redoToggleFlag(textId: UUID, wasAdd: Bool) {
+        if wasAdd {
+            flaggedTextIds.insert(textId)
+        } else {
+            flaggedTextIds.remove(textId)
+        }
+    }
+    
+    func redoRenameSpeaker(_ speaker: Speaker, newName: String?) {
+        customSpeakerNames[speaker] = newName
+    }
+    
+    func redoDeleteScreenplayElement(_ element: ScreenplayElement) {
+        screenplayElements.removeAll { $0.id == element.id }
+        flaggedTextIds.remove(element.id)
+        textlines.removeAll { $0.id == element.id }
+    }
+    
+    func redoEditScreenplayElement(id: UUID, newContent: String, newSpeaker: Speaker?) {
+        guard let index = screenplayElements.firstIndex(where: { $0.id == id }) else { return }
+        let originalElement = screenplayElements[index]
+        
+        screenplayElements[index] = ScreenplayElement(
+            id: originalElement.id,
+            type: originalElement.type,
+            content: newContent,
+            speaker: newSpeaker
+        )
+        
+        // Also update legacy textlines system if needed
+        if let textlineIndex = textlines.firstIndex(where: { $0.id == id }) {
+            textlines[textlineIndex] = SpeakerText(id: id, speaker: newSpeaker ?? .a, text: newContent)
+        }
+    }
+    
+    func undoAddScreenplayElement(_ element: ScreenplayElement) {
+        screenplayElements.removeAll { $0.id == element.id }
+        flaggedTextIds.remove(element.id)
+        
+        // Also remove from legacy textlines if present
+        textlines.removeAll { $0.id == element.id }
+    }
+    
+    func redoAddScreenplayElement(_ element: ScreenplayElement) {
+        screenplayElements.append(element)
+        
+        // Also add to legacy textlines if it's dialogue
+        if element.type == .dialogue, let speaker = element.speaker {
+            let speakerText = SpeakerText(id: element.id, speaker: speaker, text: element.content)
+            textlines.append(speakerText)
+        }
+    }
+    
     func undoDeleteScreenplayElement(_ element: ScreenplayElement, at originalIndex: Int) {
         // Insert at the original position if it's valid, otherwise append
         if originalIndex >= 0 && originalIndex <= screenplayElements.count {
@@ -759,5 +828,13 @@ final class DialogViewModel: ObservableObject {
     
     func performUndo() {
         undoManager.performUndo(dialogViewModel: self)
+    }
+    
+    func canRedo() -> Bool {
+        return undoManager.canRedo
+    }
+    
+    func performRedo() {
+        undoManager.performRedo(dialogViewModel: self)
     }
 } 

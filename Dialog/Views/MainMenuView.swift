@@ -25,7 +25,11 @@ struct MainMenuView: View {
                 isPresented: $showingUndoToast,
                 actionDescription: viewModel.getLastActionDescription(),
                 onUndo: {
-                    viewModel.performUndo()
+                    if viewModel.canRedo() {
+                        viewModel.performRedo()
+                    } else {
+                        viewModel.performUndo()
+                    }
                 }
             )
             .toolbar {
@@ -74,26 +78,17 @@ struct MainMenuView: View {
     
     // MARK: - Add Button View
     private var addButtonView: some View {
-        VStack(spacing: 0) {
-            Color(.label)
-                .frame(height: 1)
-            
-            NavigationLink {
-                DialogSceneView { dialogViewModel in
-                    viewModel.saveSession(dialogViewModel)
-                }
-            } label: {
-                Text("Add Dialogue".localized)
-                    .font(.headline)
-                    .fontWeight(.semibold)
-                    .foregroundColor(.primary)
-                    .frame(maxWidth: .infinity)
-                    .frame(height: 50)
+        NavigationLink {
+            DialogSceneView { dialogViewModel in
+                viewModel.saveSession(dialogViewModel)
             }
-            .padding(.horizontal)
-            .padding(.vertical)
+        } label: {
+            Text("NEW DIALOG")
+                .font(.system(size: 20))
+                .fontWeight(.black)
+                .foregroundColor(.primary)
         }
-        .background(Color(.systemBackground))
+        .padding(.bottom, 20)
     }
     
     // MARK: - Sessions List View
@@ -154,9 +149,9 @@ struct MainMenuView: View {
     
     // MARK: - Helper Methods
     private func handleShakeGesture() {
-        guard viewModel.canUndo() else { return }
+        guard viewModel.canUndo() || viewModel.canRedo() else { return }
         
-        // Show undo confirmation instead of immediately performing undo
+        // Show undo/redo confirmation
         showingUndoToast = true
     }
 }
@@ -180,7 +175,7 @@ struct SessionRowView: View {
             VStack(alignment: .leading, spacing: 8) {
                 Text(session.title)
                     .font(.headline)
-                    .fontWeight(.semibold)
+                    .fontWeight(.bold)
                     .lineLimit(2)
                 
                 Text(Self.dateFormatter.string(from: session.lastModified))

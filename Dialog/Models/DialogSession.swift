@@ -107,8 +107,8 @@ struct DialogSession: Identifiable, Codable, FileDocument {
     }
     
     var lineCount: Int {
-        // Count both legacy textlines and new screenplay elements
-        return textlines.count + screenplayElements.count
+        // Count only dialogue elements (spoken lines), not parentheticals or actions
+        return screenplayElements.filter { $0.type == .dialogue }.count
     }
     
     var isEmpty: Bool {

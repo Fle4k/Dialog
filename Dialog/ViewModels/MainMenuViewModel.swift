@@ -225,4 +225,30 @@ final class MainMenuViewModel: ObservableObject {
     func performUndo() {
         undoManager.performUndo(mainMenuViewModel: self)
     }
+    
+    func canRedo() -> Bool {
+        return undoManager.canRedo
+    }
+    
+    func performRedo() {
+        undoManager.performRedo(mainMenuViewModel: self)
+    }
+    
+    // MARK: - Redo Methods
+    func redoDeleteSession(_ session: DialogSession) {
+        dialogSessions.removeAll { $0.id == session.id }
+        saveSessions()
+    }
+    
+    func redoRenameSession(sessionId: UUID, newTitle: String) {
+        guard let index = dialogSessions.firstIndex(where: { $0.id == sessionId }) else { return }
+        
+        var session = dialogSessions[index]
+        session.title = newTitle
+        session.lastModified = Date()
+        
+        dialogSessions[index] = session
+        applySorting()
+        saveSessions()
+    }
 } 

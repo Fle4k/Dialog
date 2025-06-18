@@ -246,7 +246,11 @@ struct DialogSceneView: View {
             isPresented: $showingUndoToast,
             actionDescription: viewModel.getLastActionDescription(),
             onUndo: {
-                viewModel.performUndo()
+                if viewModel.canRedo() {
+                    viewModel.performRedo()
+                } else {
+                    viewModel.performUndo()
+                }
             }
         )
         .toolbar {
@@ -346,8 +350,10 @@ struct DialogSceneView: View {
             }
         }
         .onDisappear {
-            // Always save the session, even if empty (to handle deletions)
-            onSave?(viewModel)
+            // Only save the session if it has content (dialogue, parentheticals, or actions)
+            if !viewModel.screenplayElements.isEmpty {
+                onSave?(viewModel)
+            }
         }
         .onChange(of: viewModel.shouldFocusInput) { _, shouldFocus in
             isInputFocused = shouldFocus
@@ -384,6 +390,25 @@ struct DialogSceneView: View {
         .onTapGesture {
             viewModel.handleViewTap()
         }
+        .gesture(
+            // Add swipe gesture to go back when in fullscreen mode
+            viewModel.isFullscreenMode ? DragGesture()
+                .onEnded { value in
+                    // Detect left-to-right swipe (back gesture)
+                    let horizontalDistance = value.translation.width
+                    let verticalDistance = abs(value.translation.height)
+                    
+                    // Swipe must be more horizontal than vertical and start from left edge
+                    if horizontalDistance > 100 && horizontalDistance > verticalDistance * 2 && value.startLocation.x < 50 {
+                        // Add haptic feedback
+                        let impactFeedback = UIImpactFeedbackGenerator(style: .light)
+                        impactFeedback.impactOccurred()
+                        
+                        // Dismiss the view (go back to main menu)
+                        dismiss()
+                    }
+                } : nil
+        )
     }
     
     private var emptyStateView: some View {
@@ -611,9 +636,9 @@ struct DialogSceneView: View {
     }
     
     private func handleShakeGesture() {
-        guard viewModel.canUndo() else { return }
+        guard viewModel.canUndo() || viewModel.canRedo() else { return }
         
-        // Show undo confirmation instead of immediately performing undo
+        // Show undo/redo confirmation
         showingUndoToast = true
     }
 }

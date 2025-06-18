@@ -7,11 +7,15 @@ struct UndoConfirmationView: View {
     let onUndo: () -> Void
     let onDismiss: () -> Void
     
+    private var buttonText: String {
+        return actionDescription == "Redo" ? "Redo" : "Undo"
+    }
+    
     var body: some View {
         HStack {
             Spacer()
             
-            Button("Undo") {
+            Button(buttonText) {
                 onUndo()
             }
             .font(.system(.body, design: .default, weight: .medium))
@@ -25,7 +29,7 @@ struct UndoConfirmationView: View {
         }
         .padding(.horizontal)
         .onAppear {
-            // Add haptic feedback when showing undo option
+            // Add haptic feedback when showing undo/redo option
             let impactFeedback = UIImpactFeedbackGenerator(style: .light)
             impactFeedback.impactOccurred()
         }
@@ -56,8 +60,9 @@ struct UndoToastModifier: ViewModifier {
                     .padding(.bottom, 16)
                     .transition(.move(edge: .bottom).combined(with: .opacity))
                     .onAppear {
-                        // Auto-dismiss after 4 seconds
-                        DispatchQueue.main.asyncAfter(deadline: .now() + 4) {
+                        // Auto-dismiss after 5 seconds for undo, 4 seconds for redo (faster for redo)
+                        let dismissTime: Double = actionDescription == "Redo" ? 4.0 : 5.0
+                        DispatchQueue.main.asyncAfter(deadline: .now() + dismissTime) {
                             if isPresented {
                                 isPresented = false
                             }
