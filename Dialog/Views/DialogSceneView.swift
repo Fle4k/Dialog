@@ -43,6 +43,7 @@ struct GroupedElementRowView: View {
     let centerLines: Bool
     @ObservedObject var viewModel: DialogViewModel
     let shouldShowSpeakerName: Bool
+    let shouldShowContd: Bool
     let isBeingEdited: Bool
     
     var isAnyElementFlagged: Bool {
@@ -80,9 +81,19 @@ struct GroupedElementRowView: View {
             VStack(alignment: .leading, spacing: 6) {
                 // Speaker name (only show if needed)
                 if shouldShowSpeakerName {
-                    Text(groupedElement.speaker?.displayName(customNames: customSpeakerNames) ?? "")
-                        .font(.headline)
-                        .fontWeight(.black)
+                    let speakerName = groupedElement.speaker?.displayName(customNames: customSpeakerNames) ?? ""
+                    HStack(spacing: 4) {
+                        Text(speakerName)
+                            .font(.headline)
+                            .fontWeight(.black)
+                        if shouldShowContd {
+                            Text("(CONT'D)")
+                                .font(.headline)
+                                .fontWeight(.light)
+                                .italic()
+                                .foregroundColor(.secondary)
+                        }
+                    }
                 }
                 
                 // All elements for this speaker
@@ -109,9 +120,19 @@ struct GroupedElementRowView: View {
             VStack(alignment: .trailing, spacing: 6) {
                 // Speaker name (only show if needed)
                 if shouldShowSpeakerName {
-                    Text(groupedElement.speaker?.displayName(customNames: customSpeakerNames) ?? "")
-                        .font(.headline)
-                        .fontWeight(.black)
+                    let speakerName = groupedElement.speaker?.displayName(customNames: customSpeakerNames) ?? ""
+                    HStack(spacing: 4) {
+                        Text(speakerName)
+                            .font(.headline)
+                            .fontWeight(.black)
+                        if shouldShowContd {
+                            Text("(CONT'D)")
+                                .font(.headline)
+                                .fontWeight(.light)
+                                .italic()
+                                .foregroundColor(.secondary)
+                        }
+                    }
                 }
                 
                 // All elements for this speaker
@@ -137,9 +158,19 @@ struct GroupedElementRowView: View {
         VStack(spacing: 6) {
             // Show speaker name if this is dialogue or parenthetical (only show if needed)
             if let speaker = groupedElement.speaker, groupedElement.elements.first?.type != .action, shouldShowSpeakerName {
-                Text(speaker.displayName(customNames: customSpeakerNames))
-                    .font(.headline)
-                    .fontWeight(.black)
+                let speakerName = speaker.displayName(customNames: customSpeakerNames)
+                HStack(spacing: 4) {
+                    Text(speakerName)
+                        .font(.headline)
+                        .fontWeight(.black)
+                    if shouldShowContd {
+                        Text("(CONT'D)")
+                            .font(.headline)
+                            .fontWeight(.light)
+                            .italic()
+                            .foregroundColor(.secondary)
+                    }
+                }
             }
             
             // Show all elements for this group
@@ -431,6 +462,7 @@ struct DialogSceneView: View {
                 centerLines: settingsManager.centerLinesEnabled,
                 viewModel: viewModel,
                 shouldShowSpeakerName: shouldShowSpeakerName(for: index),
+                shouldShowContd: shouldShowContd(for: index),
                 isBeingEdited: viewModel.editingGroupId == groupedElement.id
             )
             .listRowBackground(Color.clear)
@@ -560,6 +592,46 @@ struct DialogSceneView: View {
         let shouldShow = currentGroup.speaker != previousGroup.speaker
         print("🏷️ shouldShowSpeakerName: index \(index), current: \(currentGroup.speaker?.rawValue ?? "nil"), previous: \(previousGroup.speaker?.rawValue ?? "nil"), shouldShow: \(shouldShow)")
         return shouldShow
+    }
+    
+    /// Determines if a speaker should show "(CONT'D)" after their name
+    /// According to screenplay formatting, CONT'D is added when a character speaks again
+    /// after an action line has interrupted their dialogue
+    private func shouldShowContd(for index: Int) -> Bool {
+        let groupedElements = getGroupedElements()
+        guard index > 0 && index < groupedElements.count else { return false }
+        
+        let currentGroup = groupedElements[index]
+        guard let currentSpeaker = currentGroup.speaker else { return false }
+        
+        // Look backwards to find the previous dialogue from the same speaker
+        for i in (0..<index).reversed() {
+            let previousGroup = groupedElements[i]
+            
+            if let previousSpeaker = previousGroup.speaker {
+                // If we find the same speaker, check if there's an action in between
+                if previousSpeaker == currentSpeaker {
+                    // Check if there's an action element between them
+                    for j in (i+1)..<index {
+                        let intermediateGroup = groupedElements[j]
+                        if intermediateGroup.elements.contains(where: { $0.type == .action }) {
+                            print("🏷️ shouldShowContd: Speaker \(currentSpeaker.rawValue) continuing after action, showing CONT'D")
+                            return true
+                        }
+                    }
+                    // If we found the same speaker without action in between, no CONT'D needed
+                    return false
+                } else {
+                    // Different speaker found, so no continuation
+                    return false
+                }
+            } else {
+                // This is an action or other non-speaker element, continue looking
+                continue
+            }
+        }
+        
+        return false
     }
     
     // MARK: - Helper Properties

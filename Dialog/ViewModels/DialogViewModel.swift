@@ -557,21 +557,38 @@ final class DialogViewModel: ObservableObject {
         
         var fdxElements: [String] = []
         var currentSpeaker: Speaker? = nil
+        var lastSpeakerBeforeAction: Speaker? = nil
         
-        for element in elementsToExport {
+        for (index, element) in elementsToExport.enumerated() {
             let escapedContent = escapeXMLText(element.content)
             
             switch element.type {
             case .dialogue:
                 // Add character name if speaker changed or is first dialogue
-                if let speaker = element.speaker, speaker != currentSpeaker {
-                    let speakerName = escapeXMLText(speaker.displayName(customNames: customSpeakerNames))
-                    fdxElements.append("""
-                    <Paragraph Type="Character">
-                    <Text>\(speakerName)</Text>
-                    </Paragraph>
-                    """)
-                    currentSpeaker = speaker
+                if let speaker = element.speaker {
+                    var shouldAddCharacterName = false
+                    var shouldShowContd = false
+                    
+                    // Always add character name if speaker changed or first dialogue
+                    if speaker != currentSpeaker {
+                        shouldAddCharacterName = true
+                        
+                        // Check if this is a continuation (same speaker as before action)
+                        if speaker == lastSpeakerBeforeAction {
+                            shouldShowContd = shouldShowContdInExport(for: index, elements: elementsToExport)
+                        }
+                    }
+                    
+                    if shouldAddCharacterName {
+                        let speakerName = escapeXMLText(speaker.displayName(customNames: customSpeakerNames))
+                        let characterName = shouldShowContd ? "\(speakerName) (CONT'D)" : speakerName
+                        fdxElements.append("""
+                        <Paragraph Type="Character">
+                        <Text>\(characterName)</Text>
+                        </Paragraph>
+                        """)
+                        currentSpeaker = speaker
+                    }
                 }
                 
                 fdxElements.append("""
@@ -582,14 +599,29 @@ final class DialogViewModel: ObservableObject {
                 
             case .parenthetical:
                 // Add character name if speaker changed
-                if let speaker = element.speaker, speaker != currentSpeaker {
-                    let speakerName = escapeXMLText(speaker.displayName(customNames: customSpeakerNames))
-                    fdxElements.append("""
-                    <Paragraph Type="Character">
-                    <Text>\(speakerName)</Text>
-                    </Paragraph>
-                    """)
-                    currentSpeaker = speaker
+                if let speaker = element.speaker {
+                    var shouldAddCharacterName = false
+                    var shouldShowContd = false
+                    
+                    if speaker != currentSpeaker {
+                        shouldAddCharacterName = true
+                        
+                        // Check if this is a continuation (same speaker as before action)
+                        if speaker == lastSpeakerBeforeAction {
+                            shouldShowContd = shouldShowContdInExport(for: index, elements: elementsToExport)
+                        }
+                    }
+                    
+                    if shouldAddCharacterName {
+                        let speakerName = escapeXMLText(speaker.displayName(customNames: customSpeakerNames))
+                        let characterName = shouldShowContd ? "\(speakerName) (CONT'D)" : speakerName
+                        fdxElements.append("""
+                        <Paragraph Type="Character">
+                        <Text>\(characterName)</Text>
+                        </Paragraph>
+                        """)
+                        currentSpeaker = speaker
+                    }
                 }
                 
                 // Wrap parenthetical content in parentheses
@@ -600,6 +632,8 @@ final class DialogViewModel: ObservableObject {
                 """)
                 
             case .action:
+                // Remember the last speaker before this action
+                lastSpeakerBeforeAction = currentSpeaker
                 // Reset current speaker for actions
                 currentSpeaker = nil
                 fdxElements.append("""
@@ -619,6 +653,39 @@ final class DialogViewModel: ObservableObject {
         </FinalDraft>
         """
         return fdxContent.data(using: .utf8) ?? Data()
+    }
+    
+    private func shouldShowContdInExport(for index: Int, elements: [ScreenplayElement]) -> Bool {
+        guard index > 0 && index < elements.count else { return false }
+        
+        let currentElement = elements[index]
+        guard let currentSpeaker = currentElement.speaker else { return false }
+        
+        // Look backwards to find the previous dialogue from the same speaker
+        for i in (0..<index).reversed() {
+            let previousElement = elements[i]
+            
+            if let previousSpeaker = previousElement.speaker {
+                // If we find the same speaker, check if there's an action in between
+                if previousSpeaker == currentSpeaker {
+                    // Check if there's an action element between them
+                    for j in (i+1)..<index {
+                        let intermediateElement = elements[j]
+                        if intermediateElement.type == .action {
+                            return true // Found action between same speaker → show CONT'D
+                        }
+                    }
+                    return false // Same speaker but no action in between
+                } else {
+                    return false // Different speaker found before any action
+                }
+            } else if previousElement.type == .action {
+                // Continue looking backwards past this action
+                continue
+            }
+        }
+        
+        return false
     }
     
     private func escapeXMLText(_ text: String) -> String {
