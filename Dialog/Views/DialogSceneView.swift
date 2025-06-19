@@ -1134,8 +1134,8 @@ struct ElementTypeSelectorView: View {
     
     var body: some View {
         ScrollView(.horizontal, showsIndicators: false) {
-            HStack(spacing: 12) {
-                ForEach(elementTypes, id: \.self) { elementType in
+            HStack(spacing: 0) {
+                ForEach(Array(elementTypes.enumerated()), id: \.element) { index, elementType in
                     Button(action: {
                         // Toggle behavior: if already selected, go back to dialogue
                         if selectedElementType == elementType {
@@ -1155,13 +1155,16 @@ struct ElementTypeSelectorView: View {
                             .frame(minWidth: 80) // Minimum width, but allow content to determine size
                             .padding(.vertical, 6)
                             .padding(.horizontal, 12)
-                            .background(
-                                RoundedRectangle(cornerRadius: 16)
-                                    .fill(buttonBackgroundColor(for: elementType))
-                            )
                     }
                     .buttonStyle(PlainButtonStyle())
                     .disabled(shouldDisableNonDialogue)
+                    
+                    // Add vertical divider after each button except the last one
+                    if index < elementTypes.count - 1 {
+                        Rectangle()
+                            .fill(Color(.systemGray4))
+                            .frame(width: 1, height: 20)
+                    }
                 }
             }
             .padding(.horizontal)
@@ -1172,21 +1175,9 @@ struct ElementTypeSelectorView: View {
         if shouldDisableNonDialogue {
             return .secondary
         } else if selectedElementType == elementType {
-            // Use adaptive color that works in both light and dark mode
-            return Color(.systemBackground)
-        } else {
-            return .primary
-        }
-    }
-    
-    private func buttonBackgroundColor(for elementType: ScreenplayElementType) -> Color {
-        if shouldDisableNonDialogue {
-            return Color(.systemGray5)
-        } else if selectedElementType == elementType {
             return .accentColor
         } else {
-            // Use a more prominent background for better contrast
-            return Color(.systemGray3)
+            return .primary
         }
     }
 }
