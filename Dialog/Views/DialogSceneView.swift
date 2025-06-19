@@ -72,8 +72,6 @@ struct GroupedElementRowView: View {
         .background(isAnyElementFlagged ? Color.primary : Color.clear)
         .foregroundColor(isAnyElementFlagged ? Color(.systemBackground) : Color(.label))
         .cornerRadius(8)
-        .blur(radius: isBeingEdited ? 2 : 0)
-        .animation(.easeInOut(duration: 0.3), value: isBeingEdited)
     }
     
     private var speakerAGroupView: some View {
@@ -671,7 +669,14 @@ struct IndividualElementView: View {
     let shouldShowContd: Bool
     let customSpeakerNames: [Speaker: String]
     
-
+    // Computed properties for selective blurring
+    private var isEditingElementContent: Bool {
+        viewModel.isEditingText && viewModel.editingGroupId == element.id
+    }
+    
+    private var isEditingCharacterExtension: Bool {
+        viewModel.isEditingElementType && viewModel.editingGroupId == element.id
+    }
     
     var body: some View {
         VStack(alignment: viewAlignment, spacing: 2) {
@@ -681,18 +686,22 @@ struct IndividualElementView: View {
                     Text(speaker.displayName(customNames: customSpeakerNames))
                         .font(.headline)
                         .fontWeight(.black)
+                        // No blur on speaker name - it stays clear
                     if shouldShowContd {
                         Text("(CONT'D)")
                             .font(.headline)
                             .fontWeight(.light)
                             .italic()
                             .foregroundColor(.secondary)
+                            // No blur on (CONT'D) - it stays clear
                     } else if let extensionString = element.type.characterExtension {
                         Text(extensionString)
                             .font(.headline)
                             .fontWeight(.light)
                             .italic()
                             .foregroundColor(.secondary)
+                            .blur(radius: isEditingCharacterExtension ? 2 : 0)
+                            .animation(.easeInOut(duration: 0.3), value: isEditingCharacterExtension)
                             .onTapGesture {
                                 // Quick edit element type by tapping on the extension
                                 startEditingElementType()
@@ -713,6 +722,8 @@ struct IndividualElementView: View {
                         .foregroundColor(isAnyElementFlagged ? Color(.systemBackground).opacity(0.8) : .secondary)
                         .italic()
                         .multilineTextAlignment(textAlignment)
+                        .blur(radius: isEditingElementContent ? 2 : 0)
+                        .animation(.easeInOut(duration: 0.3), value: isEditingElementContent)
                         .onLongPressGesture(minimumDuration: 0.5) {
                             // Long press on content opens edit mode
                             editElementContent()
@@ -723,6 +734,8 @@ struct IndividualElementView: View {
                         .fontWeight(.light)
                         .multilineTextAlignment(textAlignment)
                         .frame(maxWidth: .infinity, alignment: frameAlignment)
+                        .blur(radius: isEditingElementContent ? 2 : 0)
+                        .animation(.easeInOut(duration: 0.3), value: isEditingElementContent)
                         .onLongPressGesture(minimumDuration: 0.5) {
                             // Long press on content opens edit mode
                             editElementContent()
