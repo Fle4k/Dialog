@@ -267,22 +267,11 @@ final class DialogViewModel: ObservableObject {
             print("🔄 After action: toggled speaker to \(selectedSpeaker), elementType now \(selectedElementType)")
             
         case .offScreen, .voiceOver, .text:
-            // These are dialogue variants - use same logic as dialogue
+            // These are dialogue variants - always toggle to other speaker after adding
             let originalType = selectedElementType
-            // Check the second-to-last element (since we just added the current element)
-            let previousElement = screenplayElements.count >= 2 ? screenplayElements[screenplayElements.count - 2] : nil
-            let isFollowingParenthetical = previousElement?.type == .parenthetical && previousElement?.speaker == selectedSpeaker
-            
             selectedElementType = .dialogue
-            
-            if isFollowingParenthetical {
-                // Don't toggle speaker - this is continuation of the same speaker after parenthetical
-                print("🔄 After \(originalType) (following parenthetical): reset to dialogue, keeping speaker as \(selectedSpeaker)")
-            } else {
-                // Normal flow - toggle to other speaker
-                selectedSpeaker.toggle()
-                print("🔄 After \(originalType): reset to dialogue, toggled speaker to \(selectedSpeaker)")
-            }
+            selectedSpeaker.toggle()
+            print("🔄 After \(originalType): reset to dialogue, toggled speaker to \(selectedSpeaker)")
         }
     }
     
