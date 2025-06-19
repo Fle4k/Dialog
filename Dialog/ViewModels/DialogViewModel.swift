@@ -18,7 +18,7 @@ final class DialogViewModel: ObservableObject {
     
     // MARK: - Edit Mode Properties
     @Published var isEditingText: Bool = false
-    @Published var editingTextId: UUID? = nil
+    @Published var isEditingElementType: Bool = false
     @Published var editingGroupId: UUID? = nil
     @Published var editingOriginalSpeaker: Speaker? = nil
     
@@ -85,12 +85,19 @@ final class DialogViewModel: ObservableObject {
         }
     }
     
-    func startEditingText(_ speakerText: SpeakerText) {
+
+    
+
+    
+    func startEditingElement(_ element: ScreenplayElement) {
         isEditingText = true
-        editingTextId = speakerText.id
-        inputText = speakerText.text
-        selectedSpeaker = speakerText.speaker
-        editingOriginalSpeaker = speakerText.speaker
+        editingGroupId = element.id // Use element ID directly for individual editing
+        editingOriginalSpeaker = element.speaker
+        
+        // Edit the specific element
+        inputText = element.content
+        selectedSpeaker = element.speaker ?? .a
+        selectedElementType = element.type
         
         if isFullscreenMode {
             exitFullscreenMode()
@@ -99,17 +106,14 @@ final class DialogViewModel: ObservableObject {
         }
     }
     
-    func startEditingGroup(_ groupedElement: GroupedElement) {
-        isEditingText = true
-        editingGroupId = groupedElement.id
-        editingOriginalSpeaker = groupedElement.speaker
+    func startEditingElementType(_ element: ScreenplayElement) {
+        isEditingElementType = true
+        editingGroupId = element.id // Use element ID for element type editing
+        editingOriginalSpeaker = element.speaker
         
-        // Edit the first element in the group (whether dialogue, parenthetical, or action)
-        if let firstElement = groupedElement.elements.first {
-            inputText = firstElement.content
-            selectedSpeaker = firstElement.speaker ?? groupedElement.speaker ?? .a
-            selectedElementType = firstElement.type
-        }
+        // Set the current element type to be edited
+        selectedElementType = element.type
+        selectedSpeaker = element.speaker ?? .a
         
         if isFullscreenMode {
             exitFullscreenMode()
@@ -139,43 +143,15 @@ final class DialogViewModel: ObservableObject {
         guard !trimmedText.isEmpty else { return }
         
         if isEditingText, let editingGroupId = editingGroupId {
-            // We're editing a group - replace the first dialogue element with the new text
-            saveEditedGroup(groupId: editingGroupId, newText: trimmedText, newSpeaker: selectedSpeaker)
-            
-            // Add haptic feedback for successful edit confirmation
-            let notificationFeedback = UINotificationFeedbackGenerator()
-            notificationFeedback.notificationOccurred(.success)
-        } else if isEditingText, let editingId = editingTextId {
-            // Legacy editing for old textlines system
-            // Store original values for undo
-            if let index = textlines.firstIndex(where: { $0.id == editingId }) {
-                let originalText = textlines[index]
-                undoManager.recordAction(.editText(
-                    id: editingId,
-                    oldText: originalText.text,
-                    newText: trimmedText,
-                    oldSpeaker: originalText.speaker,
-                    newSpeaker: selectedSpeaker
-                ))
-            }
-            
-            // Apply both text and speaker changes when saving the edit
-            updateText(withId: editingId, newText: trimmedText, newSpeaker: selectedSpeaker)
-            setNextSpeakerBasedOnLastText()
+            // We're editing an individual element
+            saveEditedElement(elementId: editingGroupId, newText: trimmedText, newSpeaker: selectedSpeaker, newType: selectedElementType)
             
             // Add haptic feedback for successful edit confirmation
             let notificationFeedback = UINotificationFeedbackGenerator()
             notificationFeedback.notificationOccurred(.success)
         } else {
-            // Add to new screenplay elements system
+            // Add new screenplay element
             addScreenplayElement()
-            
-            // Only add to legacy textlines system for dialogue elements (for backwards compatibility)
-            // Note: No undo recording here since addScreenplayElement() already handles undo
-            if selectedElementType == .dialogue {
-                let speakerText = SpeakerText(speaker: selectedSpeaker, text: trimmedText)
-                textlines.append(speakerText)
-            }
         }
         
         inputText = ""
@@ -283,45 +259,11 @@ final class DialogViewModel: ObservableObject {
     }
     
     // MARK: - Edit Mode Methods
-    func saveEditedGroup(groupId: UUID, newText: String, newSpeaker: Speaker) {
-        // Find the element to edit - it should be the one with the matching groupId
-        // In our grouped system, the groupId matches the first element's ID in the group
-        guard let elementIndex = screenplayElements.firstIndex(where: { $0.id == groupId }) else { 
-            print("❌ Could not find element with groupId: \(groupId)")
-            return 
-        }
-        
-        let originalElement = screenplayElements[elementIndex]
-        
-        // Record undo action
-        undoManager.recordAction(.editScreenplayElement(
-            id: originalElement.id,
-            oldContent: originalElement.content,
-            newContent: newText,
-            oldSpeaker: originalElement.speaker,
-            newSpeaker: newSpeaker
-        ))
-        
-        // Update the element
-        screenplayElements[elementIndex] = ScreenplayElement(
-            id: originalElement.id,
-            type: originalElement.type,
-            content: newText,
-            speaker: newSpeaker
-        )
-        
-        // Update legacy textlines system if needed
-        if let textlineIndex = textlines.firstIndex(where: { $0.id == groupId }) {
-            textlines[textlineIndex] = SpeakerText(id: groupId, speaker: newSpeaker, text: newText)
-        }
-        
-        print("✅ Successfully edited element \(groupId): '\(newText)' by \(newSpeaker)")
-        setNextSpeakerBasedOnLastText()
-    }
+
     
     func exitEditMode() {
         isEditingText = false
-        editingTextId = nil
+        isEditingElementType = false
         editingGroupId = nil
         editingOriginalSpeaker = nil
     }
@@ -862,28 +804,20 @@ final class DialogViewModel: ObservableObject {
             speaker: newSpeaker
         )
         
-        // Also update legacy textlines system if needed
-        if let textlineIndex = textlines.firstIndex(where: { $0.id == id }) {
-            textlines[textlineIndex] = SpeakerText(id: id, speaker: newSpeaker ?? .a, text: newContent)
-        }
+
     }
     
     func undoAddScreenplayElement(_ element: ScreenplayElement) {
         screenplayElements.removeAll { $0.id == element.id }
         flaggedTextIds.remove(element.id)
         
-        // Also remove from legacy textlines if present
-        textlines.removeAll { $0.id == element.id }
+
     }
     
     func redoAddScreenplayElement(_ element: ScreenplayElement) {
         screenplayElements.append(element)
         
-        // Also add to legacy textlines if it's dialogue
-        if element.type == .dialogue, let speaker = element.speaker {
-            let speakerText = SpeakerText(id: element.id, speaker: speaker, text: element.content)
-            textlines.append(speakerText)
-        }
+
     }
     
     func undoDeleteScreenplayElement(_ element: ScreenplayElement, at originalIndex: Int) {
@@ -931,5 +865,64 @@ final class DialogViewModel: ObservableObject {
     
     func performRedo() {
         undoManager.performRedo(dialogViewModel: self)
+    }
+    
+    func saveEditedElement(elementId: UUID, newText: String, newSpeaker: Speaker, newType: ScreenplayElementType) {
+        guard let elementIndex = screenplayElements.firstIndex(where: { $0.id == elementId }) else { 
+            print("❌ Could not find element with ID: \(elementId)")
+            return 
+        }
+        
+        let originalElement = screenplayElements[elementIndex]
+        
+        // Record undo action
+        undoManager.recordAction(.editScreenplayElement(
+            id: originalElement.id,
+            oldContent: originalElement.content,
+            newContent: newText,
+            oldSpeaker: originalElement.speaker,
+            newSpeaker: newSpeaker
+        ))
+        
+        // Update the element
+        screenplayElements[elementIndex] = ScreenplayElement(
+            id: originalElement.id,
+            type: newType,
+            content: newText,
+            speaker: newSpeaker
+        )
+        
+
+        
+        print("✅ Successfully edited individual element \(elementId): '\(newText)' by \(newSpeaker)")
+        setNextSpeakerBasedOnLastText()
+    }
+    
+    func changeElementType(elementId: UUID, to newType: ScreenplayElementType) {
+        guard let elementIndex = screenplayElements.firstIndex(where: { $0.id == elementId }) else { 
+            print("❌ Could not find element with ID: \(elementId)")
+            return 
+        }
+        
+        let originalElement = screenplayElements[elementIndex]
+        
+        // Record undo action
+        undoManager.recordAction(.editScreenplayElement(
+            id: originalElement.id,
+            oldContent: originalElement.content,
+            newContent: originalElement.content, // Content stays the same
+            oldSpeaker: originalElement.speaker,
+            newSpeaker: originalElement.speaker // Speaker stays the same
+        ))
+        
+        // Update only the element type, preserve content and speaker
+        screenplayElements[elementIndex] = ScreenplayElement(
+            id: originalElement.id,
+            type: newType,
+            content: originalElement.content,
+            speaker: newType.requiresSpeaker ? originalElement.speaker : nil
+        )
+        
+        print("✅ Successfully changed element type for \(elementId) from \(originalElement.type) to \(newType)")
     }
 } 

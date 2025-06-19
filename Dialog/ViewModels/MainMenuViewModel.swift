@@ -107,6 +107,7 @@ final class MainMenuViewModel: ObservableObject {
         // Create updated session with new data
         var updatedSession = session
         updatedSession.textlines = viewModel.textlines
+        updatedSession.screenplayElements = viewModel.screenplayElements // Essential: Update screenplay elements for individual editing
         updatedSession.customSpeakerNames = viewModel.customSpeakerNames
         updatedSession.flaggedTextIds = viewModel.flaggedTextIds
         

@@ -79,41 +79,18 @@ struct GroupedElementRowView: View {
     private var speakerAGroupView: some View {
         HStack {
             VStack(alignment: .leading, spacing: 6) {
-                // Speaker name (only show if needed)
-                if shouldShowSpeakerName {
-                    let speakerName = groupedElement.speaker?.displayName(customNames: customSpeakerNames) ?? ""
-                    HStack(spacing: 4) {
-                        Text(speakerName)
-                            .font(.headline)
-                            .fontWeight(.black)
-                        if shouldShowContd {
-                            Text("(CONT'D)")
-                                .font(.headline)
-                                .fontWeight(.light)
-                                .italic()
-                                .foregroundColor(.secondary)
-                        } else if let extensionString = groupedElement.elements.first?.type.characterExtension {
-                            Text(extensionString)
-                                .font(.headline)
-                                .fontWeight(.light)
-                                .italic()
-                                .foregroundColor(.secondary)
-                        }
-                    }
-                }
-                
                 // All elements for this speaker
-                ForEach(groupedElement.elements) { element in
-                    if element.type == .parenthetical {
-                        Text("(\(element.content))")
-                            .font(.caption)
-                            .foregroundColor(isAnyElementFlagged ? Color(.systemBackground).opacity(0.8) : .secondary)
-                            .italic()
-                    } else {
-                        Text(element.content)
-                            .font(.body)
-                            .fontWeight(.light)
-                    }
+                ForEach(groupedElement.elements.indices, id: \.self) { index in
+                    let element = groupedElement.elements[index]
+                    IndividualElementView(
+                        element: element,
+                        viewModel: viewModel,
+                        isAnyElementFlagged: isAnyElementFlagged,
+                        alignment: .leading,
+                        showSpeakerName: index == 0 && shouldShowSpeakerName,
+                        shouldShowContd: index == 0 && shouldShowContd,
+                        customSpeakerNames: customSpeakerNames
+                    )
                 }
             }
             Spacer()
@@ -124,43 +101,18 @@ struct GroupedElementRowView: View {
         HStack {
             Spacer()
             VStack(alignment: .trailing, spacing: 6) {
-                // Speaker name (only show if needed)
-                if shouldShowSpeakerName {
-                    let speakerName = groupedElement.speaker?.displayName(customNames: customSpeakerNames) ?? ""
-                    HStack(spacing: 4) {
-                        Text(speakerName)
-                            .font(.headline)
-                            .fontWeight(.black)
-                        if shouldShowContd {
-                            Text("(CONT'D)")
-                                .font(.headline)
-                                .fontWeight(.light)
-                                .italic()
-                                .foregroundColor(.secondary)
-                        } else if let extensionString = groupedElement.elements.first?.type.characterExtension {
-                            Text(extensionString)
-                                .font(.headline)
-                                .fontWeight(.light)
-                                .italic()
-                                .foregroundColor(.secondary)
-                        }
-                    }
-                }
-                
                 // All elements for this speaker
-                ForEach(groupedElement.elements) { element in
-                    if element.type == .parenthetical {
-                        Text("(\(element.content))")
-                            .font(.caption)
-                            .foregroundColor(isAnyElementFlagged ? Color(.systemBackground).opacity(0.8) : .secondary)
-                            .italic()
-                            .multilineTextAlignment(.trailing)
-                    } else {
-                        Text(element.content)
-                            .font(.body)
-                            .fontWeight(.light)
-                            .multilineTextAlignment(.trailing)
-                    }
+                ForEach(groupedElement.elements.indices, id: \.self) { index in
+                    let element = groupedElement.elements[index]
+                    IndividualElementView(
+                        element: element,
+                        viewModel: viewModel,
+                        isAnyElementFlagged: isAnyElementFlagged,
+                        alignment: .trailing,
+                        showSpeakerName: index == 0 && shouldShowSpeakerName,
+                        shouldShowContd: index == 0 && shouldShowContd,
+                        customSpeakerNames: customSpeakerNames
+                    )
                 }
             }
         }
@@ -168,44 +120,18 @@ struct GroupedElementRowView: View {
     
     private var centeredView: some View {
         VStack(spacing: 6) {
-            // Show speaker name if this is dialogue or parenthetical (only show if needed)
-            if let speaker = groupedElement.speaker, groupedElement.elements.first?.type != .action, shouldShowSpeakerName {
-                let speakerName = speaker.displayName(customNames: customSpeakerNames)
-                HStack(spacing: 4) {
-                    Text(speakerName)
-                        .font(.headline)
-                        .fontWeight(.black)
-                    if shouldShowContd {
-                        Text("(CONT'D)")
-                            .font(.headline)
-                            .fontWeight(.light)
-                            .italic()
-                            .foregroundColor(.secondary)
-                    } else if let extensionString = groupedElement.elements.first?.type.characterExtension {
-                        Text(extensionString)
-                            .font(.headline)
-                            .fontWeight(.light)
-                            .italic()
-                            .foregroundColor(.secondary)
-                    }
-                }
-            }
-            
             // Show all elements for this group
-            ForEach(groupedElement.elements) { element in
-                if element.type == .parenthetical {
-                    Text("(\(element.content))")
-                        .font(.caption)
-                        .foregroundColor(isAnyElementFlagged ? Color(.systemBackground).opacity(0.8) : .secondary)
-                        .italic()
-                        .multilineTextAlignment(.center)
-                } else {
-                    Text(element.content)
-                        .font(.body)
-                        .fontWeight(element.type == .action ? .light : .light)
-                        .multilineTextAlignment(element.type == .action ? .leading : .center)
-                        .frame(maxWidth: .infinity, alignment: element.type == .action ? .leading : .center)
-                }
+            ForEach(groupedElement.elements.indices, id: \.self) { index in
+                let element = groupedElement.elements[index]
+                IndividualElementView(
+                    element: element,
+                    viewModel: viewModel,
+                    isAnyElementFlagged: isAnyElementFlagged,
+                    alignment: element.type == .action ? .leading : .center,
+                    showSpeakerName: index == 0 && shouldShowSpeakerName,
+                    shouldShowContd: index == 0 && shouldShowContd,
+                    customSpeakerNames: customSpeakerNames
+                )
             }
         }
         .frame(maxWidth: .infinity)
@@ -437,7 +363,12 @@ struct DialogSceneView: View {
         .contentMargins(.bottom, viewModel.showInputArea ? 60 : 0)
         .contentMargins(.top, viewModel.isFullscreenMode ? 0 : 0)
         .onTapGesture {
-            viewModel.handleViewTap()
+            // If editing element type, exit the edit mode
+            if viewModel.isEditingElementType {
+                viewModel.exitEditMode()
+            } else {
+                viewModel.handleViewTap()
+            }
         }
         .gesture(
             // Add swipe gesture to go back when in fullscreen mode
@@ -468,7 +399,12 @@ struct DialogSceneView: View {
         .listRowBackground(Color.clear)
         .listRowSeparator(.hidden)
         .onTapGesture {
-            viewModel.handleViewTap()
+            // If editing element type, exit the edit mode
+            if viewModel.isEditingElementType {
+                viewModel.exitEditMode()
+            } else {
+                viewModel.handleViewTap()
+            }
         }
     }
 
@@ -517,12 +453,7 @@ struct DialogSceneView: View {
                 }
                 .tint(.red)
             }
-            .simultaneousGesture(
-                LongPressGesture(minimumDuration: 0.5)
-                    .onEnded { _ in
-                        startEditingGroup(groupedElement)
-                    }
-            )
+
         }
     }
     
@@ -707,19 +638,16 @@ struct DialogSceneView: View {
             .padding(.bottom)
         }
         .background(Color(.systemBackground))
+
         .onChange(of: viewModel.inputText) { _, _ in
             viewModel.handleNewlineInput()
         }
     }
     
     // MARK: - Helper Methods
-    private func startEditingGroup(_ groupedElement: GroupedElement) {
-        // Add haptic feedback for selection
-        let impactFeedback = UIImpactFeedbackGenerator(style: .light)
-        impactFeedback.impactOccurred()
-        
-        viewModel.startEditingGroup(groupedElement)
-    }
+
+    
+
     
     private func cancelEditMode() {
         viewModel.cancelEditMode()
@@ -734,6 +662,125 @@ struct DialogSceneView: View {
 }
 
 // MARK: - Supporting Views
+struct IndividualElementView: View {
+    let element: ScreenplayElement
+    @ObservedObject var viewModel: DialogViewModel
+    let isAnyElementFlagged: Bool
+    var alignment: HorizontalAlignment = .leading
+    let showSpeakerName: Bool
+    let shouldShowContd: Bool
+    let customSpeakerNames: [Speaker: String]
+    
+
+    
+    var body: some View {
+        VStack(alignment: viewAlignment, spacing: 2) {
+            // Show speaker name and extension for this individual element when needed
+            if showSpeakerName && element.type.requiresSpeaker, let speaker = element.speaker {
+                HStack(spacing: 4) {
+                    Text(speaker.displayName(customNames: customSpeakerNames))
+                        .font(.headline)
+                        .fontWeight(.black)
+                    if shouldShowContd {
+                        Text("(CONT'D)")
+                            .font(.headline)
+                            .fontWeight(.light)
+                            .italic()
+                            .foregroundColor(.secondary)
+                    } else if let extensionString = element.type.characterExtension {
+                        Text(extensionString)
+                            .font(.headline)
+                            .fontWeight(.light)
+                            .italic()
+                            .foregroundColor(.secondary)
+                            .onTapGesture {
+                                // Quick edit element type by tapping on the extension
+                                startEditingElementType()
+                            }
+                            .onLongPressGesture(minimumDuration: 0.5) {
+                                // Long press on character extension also activates element type editing
+                                startEditingElementType()
+                            }
+                    }
+                }
+            }
+            
+            // The actual content
+            Group {
+                if element.type == .parenthetical {
+                    Text("(\(element.content))")
+                        .font(.caption)
+                        .foregroundColor(isAnyElementFlagged ? Color(.systemBackground).opacity(0.8) : .secondary)
+                        .italic()
+                        .multilineTextAlignment(textAlignment)
+                        .onLongPressGesture(minimumDuration: 0.5) {
+                            // Long press on content opens edit mode
+                            editElementContent()
+                        }
+                } else {
+                    Text(element.content)
+                        .font(.body)
+                        .fontWeight(.light)
+                        .multilineTextAlignment(textAlignment)
+                        .frame(maxWidth: .infinity, alignment: frameAlignment)
+                        .onLongPressGesture(minimumDuration: 0.5) {
+                            // Long press on content opens edit mode
+                            editElementContent()
+                        }
+                }
+            }
+        }
+    }
+    
+    private var viewAlignment: HorizontalAlignment {
+        return alignment
+    }
+    
+    private func startEditingElementType() {
+        // Add haptic feedback
+        let impactFeedback = UIImpactFeedbackGenerator(style: .light)
+        impactFeedback.impactOccurred()
+        
+        // Start editing the element type using the existing element type selector
+        viewModel.startEditingElementType(element)
+    }
+    
+    private func editElementContent() {
+        // Add haptic feedback for content editing
+        let impactFeedback = UIImpactFeedbackGenerator(style: .light)
+        impactFeedback.impactOccurred()
+        
+        // Start editing the element content
+        viewModel.startEditingElement(element)
+    }
+    
+    private var textAlignment: TextAlignment {
+        switch alignment {
+        case .leading:
+            return .leading
+        case .center:
+            return .center
+        case .trailing:
+            return .trailing
+        default:
+            return .leading
+        }
+    }
+    
+    private var frameAlignment: Alignment {
+        switch alignment {
+        case .leading:
+            return .leading
+        case .center:
+            return .center
+        case .trailing:
+            return .trailing
+        default:
+            return .leading
+        }
+    }
+}
+
 struct SpeakerTextRowView: View {
     let speakerText: SpeakerText
     let speakerName: String
@@ -1122,14 +1169,24 @@ struct ElementTypeSelectorView: View {
         viewModel.screenplayElements.last?.type == .parenthetical
     }
     
-    // Only disable if last element is parenthetical AND there's no text being typed
+    // Only disable if last element is parenthetical AND there's no text being typed AND not editing element type
     private var shouldDisableNonDialogue: Bool {
-        isLastElementParenthetical && viewModel.inputText.isEmpty
+        !viewModel.isEditingElementType && isLastElementParenthetical && viewModel.inputText.isEmpty
+    }
+    
+    // When editing element type, show all options including dialogue
+    private var isEditingElementType: Bool {
+        viewModel.isEditingElementType
     }
     
     // Define the order of element types as requested: Action, Parenthetical, Off Screen, Voice Over, Text
+    // When editing element type, show Remove option plus all character extension types
     private var elementTypes: [ScreenplayElementType] {
-        [.action, .parenthetical, .offScreen, .voiceOver, .text]
+        if isEditingElementType {
+            return [.dialogue, .offScreen, .voiceOver, .text]  // dialogue will be shown as "Remove"
+        } else {
+            return [.action, .parenthetical, .offScreen, .voiceOver, .text]
+        }
     }
     
     var body: some View {
@@ -1137,27 +1194,36 @@ struct ElementTypeSelectorView: View {
             HStack(spacing: 0) {
                 ForEach(Array(elementTypes.enumerated()), id: \.element) { index, elementType in
                     Button(action: {
-                        // Toggle behavior: if already selected, go back to dialogue
-                        if selectedElementType == elementType {
-                            selectedElementType = .dialogue
-                        } else {
-                            selectedElementType = elementType
-                        }
-                        
                         // Add haptic feedback
                         let impactFeedback = UIImpactFeedbackGenerator(style: .light)
                         impactFeedback.impactOccurred()
+                        
+                        if isEditingElementType {
+                            // When editing element type, apply the change and exit edit mode
+                            if let editingGroupId = viewModel.editingGroupId {
+                                // dialogue type means "Remove" - keep as dialogue, others are character extensions
+                                viewModel.changeElementType(elementId: editingGroupId, to: elementType)
+                            }
+                            viewModel.exitEditMode()
+                        } else {
+                            // Normal behavior: Toggle between selected type and dialogue
+                            if selectedElementType == elementType {
+                                selectedElementType = .dialogue
+                            } else {
+                                selectedElementType = elementType
+                            }
+                        }
                     }) {
-                        Text(elementType.displayName)
+                        Text(getDisplayName(for: elementType))
                             .font(.caption)
-                            .fontWeight(selectedElementType == elementType ? .black : .regular)
+                            .fontWeight(isCurrentlySelected(elementType) ? .black : .regular)
                             .foregroundColor(buttonTextColor(for: elementType))
                             .frame(minWidth: 80) // Minimum width, but allow content to determine size
                             .padding(.vertical, 6)
                             .padding(.horizontal, 12)
                     }
                     .buttonStyle(PlainButtonStyle())
-                    .disabled(shouldDisableNonDialogue)
+                    .disabled(shouldDisableNonDialogue && !isEditingElementType)
                     
                     // Add vertical divider after each button except the last one
                     if index < elementTypes.count - 1 {
@@ -1171,11 +1237,37 @@ struct ElementTypeSelectorView: View {
         }
     }
     
+    private func getDisplayName(for elementType: ScreenplayElementType) -> String {
+        if isEditingElementType && elementType == .dialogue {
+            return "Remove"
+        } else {
+            return elementType.displayName
+        }
+    }
+    
+    private func isCurrentlySelected(_ elementType: ScreenplayElementType) -> Bool {
+        if isEditingElementType {
+            // When editing element type, check against the element being edited
+            guard let editingGroupId = viewModel.editingGroupId,
+                  let editingElement = viewModel.screenplayElements.first(where: { $0.id == editingGroupId }) else {
+                return false
+            }
+            // Show "Remove" as selected if editing a dialogue type, otherwise match the type
+            if elementType == .dialogue {
+                return editingElement.type == .dialogue
+            } else {
+                return editingElement.type == elementType
+            }
+        } else {
+            return selectedElementType == elementType
+        }
+    }
+    
     private func buttonTextColor(for elementType: ScreenplayElementType) -> Color {
         if shouldDisableNonDialogue {
             return .secondary
-        } else if selectedElementType == elementType {
-            return .accentColor
+        } else if isCurrentlySelected(elementType) {
+            return .accentColor  // Always use accent color when selected
         } else {
             return .primary
         }
