@@ -1150,7 +1150,7 @@ struct ElementTypeSelectorView: View {
                     }) {
                         Text(elementType.displayName)
                             .font(.caption)
-                            .fontWeight(selectedElementType == elementType ? .semibold : .regular)
+                            .fontWeight(selectedElementType == elementType ? .black : .regular)
                             .foregroundColor(buttonTextColor(for: elementType))
                             .frame(minWidth: 80) // Minimum width, but allow content to determine size
                             .padding(.vertical, 6)

@@ -85,7 +85,7 @@ struct MainMenuView: View {
         } label: {
                             Text("NEW DIALOG".localized)
                 .font(.system(size: 20))
-                .fontWeight(.black)
+                .fontWeight(.bold)
                 .foregroundColor(.primary)
         }
         .padding(.bottom, 20)
@@ -108,9 +108,10 @@ struct MainMenuView: View {
             Spacer()
             
             // Talk balloon icon
-            Image(systemName: "bubble.left.and.bubble.right")
-                .font(.system(size: 40))
-                .foregroundStyle(.tertiary)
+//            Image(systemName: "bubble.left.and.bubble.right")
+//                .font(.system(size: 40))
+//                .fontWeight(.light)
+//                .foregroundStyle(.tertiary)
             
             Text("No one said a word.".localized)
                 .font(.title2)

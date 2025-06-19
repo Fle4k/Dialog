@@ -69,6 +69,7 @@ struct CharacterCreatorRecommendationView: View {
                 .aspectRatio(contentMode: .fit)
                 .frame(width: 60, height: 60)
                 .clipShape(RoundedRectangle(cornerRadius: 13))
+                .shadow(color: .gray.opacity(0.3), radius: 2, x: 0, y: 1)
                 
             
             // App Info
