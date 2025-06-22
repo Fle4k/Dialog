@@ -94,6 +94,7 @@ final class DialogViewModel: ObservableObject {
         print("🛠️ startEditingElement: STARTING edit for element \(element.id) with content '\(element.content)'")
         
         isEditingText = true
+        isEditingElementType = true  // Enable element type editing menu for individual elements too
         editingGroupId = element.id // Use element ID directly for individual editing
         editingOriginalSpeaker = element.speaker
         
@@ -102,7 +103,7 @@ final class DialogViewModel: ObservableObject {
         selectedSpeaker = element.speaker ?? .a
         selectedElementType = element.type
         
-        print("🛠️ startEditingElement: Set isEditingText=\(isEditingText), editingGroupId=\(editingGroupId?.uuidString ?? "nil")")
+        print("🛠️ startEditingElement: Set isEditingText=\(isEditingText), isEditingElementType=\(isEditingElementType), editingGroupId=\(editingGroupId?.uuidString ?? "nil")")
         print("🛠️ startEditingElement: Set inputText='\(inputText)', selectedSpeaker=\(selectedSpeaker), selectedElementType=\(selectedElementType)")
         
         if isFullscreenMode {
@@ -111,7 +112,7 @@ final class DialogViewModel: ObservableObject {
             showInputAreaWithFocus()
         }
         
-        print("🛠️ startEditingElement: COMPLETED - isEditingText=\(isEditingText), editingGroupId=\(editingGroupId?.uuidString ?? "nil")")
+        print("🛠️ startEditingElement: COMPLETED - isEditingText=\(isEditingText), isEditingElementType=\(isEditingElementType), editingGroupId=\(editingGroupId?.uuidString ?? "nil")")
     }
     
     func startEditingGroup(_ groupedElement: GroupedElement) {
@@ -456,6 +457,43 @@ final class DialogViewModel: ObservableObject {
         setNextSpeakerBasedOnLastText()
         
         print("✅ Successfully removed parenthetical completely - input cleared, back to dialogue mode")
+    }
+    
+    func removeActionCompletely(elementId: UUID) {
+        guard let index = screenplayElements.firstIndex(where: { $0.id == elementId }) else { 
+            print("❌ Could not find action with ID: \(elementId)")
+            return 
+        }
+        
+        let element = screenplayElements[index]
+        print("🗑️ removeActionCompletely: Removing action '\(element.content)'")
+        
+        // Record undo action
+        undoManager.recordAction(.deleteScreenplayElement(element, index))
+        
+        // Remove the action completely
+        screenplayElements.removeAll { $0.id == elementId }
+        flaggedTextIds.remove(elementId)
+        updateGroupedElements()
+        
+        // Clear input text so action content doesn't appear in input field
+        inputText = ""
+        
+        // Reset to normal dialogue writing mode
+        selectedElementType = .dialogue
+        
+        // Set up for continuing dialogue without the deleted action content
+        setNextSpeakerBasedOnLastText()
+        
+        // If we deleted the last element and we're in fullscreen mode, exit to writing mode
+        if screenplayElements.isEmpty && isFullscreenMode {
+            exitFullscreenMode()
+        } else {
+            // Stay in writing mode for continued writing
+            showInputAreaWithFocus()
+        }
+        
+        print("✅ Successfully removed action completely - input cleared, back to dialogue mode")
     }
     
     func getSpeakerName(for speaker: Speaker) -> String {
@@ -1010,8 +1048,15 @@ final class DialogViewModel: ObservableObject {
         
         print("✅ Successfully changed element type for \(elementId) from \(originalElement.type) to \(newType)")
         
-        // After changing element type, set up for continuing dialogue but don't auto-scroll
+        // Immediately exit editing mode and clear input text
+        exitEditMode()
+        inputText = ""
+        
+        // After changing element type, set up for continuing dialogue
         setNextSpeakerBasedOnLastText()
+        
+        // Stay in writing mode for continued writing
+        showInputAreaWithFocus()
     }
     
     func startAddingParentheticalInEditMode() {

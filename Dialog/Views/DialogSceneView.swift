@@ -690,7 +690,13 @@ struct IndividualElementView: View {
                         .multilineTextAlignment(textAlignment)
                         .blur(radius: isEditingElementContent ? 2 : 0)
                         .animation(.easeInOut(duration: 0.3), value: isEditingElementContent)
-
+                        .contentShape(Rectangle())
+                        .onTapGesture {
+                            editIndividualElement()
+                        }
+                        .onLongPressGesture(minimumDuration: 0.5) {
+                            editIndividualElement()
+                        }
                 } else {
                     Text(element.content)
                         .font(.body)
@@ -699,7 +705,13 @@ struct IndividualElementView: View {
                         .frame(maxWidth: .infinity, alignment: frameAlignment)
                         .blur(radius: isEditingElementContent ? 2 : 0)
                         .animation(.easeInOut(duration: 0.3), value: isEditingElementContent)
-
+                        .contentShape(Rectangle())
+                        .onTapGesture {
+                            editIndividualElement()
+                        }
+                        .onLongPressGesture(minimumDuration: 0.5) {
+                            editIndividualElement()
+                        }
                 }
             }
         }
@@ -718,16 +730,16 @@ struct IndividualElementView: View {
         viewModel.startEditingElementType(element)
     }
     
-    private func editElementContent() {
-        print("🛠️ editElementContent: TAP detected on element \(element.id) with content '\(element.content)'")
+    private func editIndividualElement() {
+        print("🛠️ editIndividualElement: TAP detected on element \(element.id) with content '\(element.content)'")
         
         // Add haptic feedback for content editing
         let impactFeedback = UIImpactFeedbackGenerator(style: .light)
         impactFeedback.impactOccurred()
         
-        // Start editing the group that contains this element
-        print("🛠️ editElementContent: Calling viewModel.startEditingGroup")
-        viewModel.startEditingGroup(groupedElement)
+        // Start editing just this individual element, not the whole group
+        print("🛠️ editIndividualElement: Calling viewModel.startEditingElement")
+        viewModel.startEditingElement(element)
     }
     
     private var textAlignment: TextAlignment {
@@ -1155,21 +1167,30 @@ struct ElementTypeSelectorView: View {
         viewModel.isEditingElementType
     }
     
-    // Define the order of element types as requested: Action, Parenthetical, Off Screen, Voice Over, Text
     // When editing element type, show different options based on what's being edited
     private var elementTypes: [ScreenplayElementType] {
         if isEditingElementType {
-            // Check if we're editing a parenthetical specifically
+            // Check what type of element we're editing
             if let editingGroupId = viewModel.editingGroupId,
-               let editingElement = viewModel.screenplayElements.first(where: { $0.id == editingGroupId }),
-               editingElement.type == .parenthetical {
-                // For parentheticals, only show Remove option
-                return [.dialogue]  // dialogue will be shown as "Remove"
+               let editingElement = viewModel.screenplayElements.first(where: { $0.id == editingGroupId }) {
+                
+                if editingElement.type == .action {
+                    // For actions, only show Remove option
+                    return [.dialogue]  // dialogue will be shown as "Remove"
+                } else if editingElement.type == .parenthetical {
+                    // For parentheticals, show Remove option and character extensions (but not Action)
+                    return [.dialogue, .offScreen, .voiceOver, .text]  // dialogue will be shown as "Remove"
+                } else {
+                    // For dialogue, show character extension types and parenthetical (no Remove option)
+                    return [.parenthetical, .offScreen, .voiceOver, .text]
+                }
             } else {
-                // For dialogue, show character extension types and parenthetical (no Remove option)
-                return [.parenthetical, .offScreen, .voiceOver, .text]
+                // Fallback: if we can't find the editing element, show all options except action for parentheticals
+                // This is a safety fallback that shouldn't normally be reached
+                return [.dialogue, .parenthetical, .offScreen, .voiceOver, .text]
             }
         } else {
+            // Normal mode (not editing): show all options
             return [.action, .parenthetical, .offScreen, .voiceOver, .text]
         }
     }
@@ -1191,6 +1212,9 @@ struct ElementTypeSelectorView: View {
                                     if editingElement.type == .parenthetical {
                                         // For parentheticals, "Remove" means delete completely
                                         viewModel.removeParentheticalCompletely(elementId: editingGroupId)
+                                    } else if editingElement.type == .action {
+                                        // For actions, "Remove" means delete completely and return to writing mode
+                                        viewModel.removeActionCompletely(elementId: editingGroupId)
                                     } else {
                                         // For dialogue with extensions, "Remove" means change back to plain dialogue
                                         viewModel.changeElementType(elementId: editingGroupId, to: .dialogue)
@@ -1201,7 +1225,7 @@ struct ElementTypeSelectorView: View {
                                 // Add new parenthetical above current line
                                 viewModel.startAddingParentheticalInEditMode()
                             } else {
-                                // Apply character extension and exit edit mode
+                                // Apply character extension and exit edit mode immediately
                                 if let editingGroupId = viewModel.editingGroupId {
                                     viewModel.changeElementType(elementId: editingGroupId, to: elementType)
                                 }
@@ -1247,11 +1271,17 @@ struct ElementTypeSelectorView: View {
     private func getDisplayName(for elementType: ScreenplayElementType) -> String {
         if isEditingElementType {
             if elementType == .dialogue {
-                // Check if we're editing a parenthetical to show appropriate remove text
+                // Check what type of element we're editing to show appropriate remove text
                 if let editingGroupId = viewModel.editingGroupId,
-                   let editingElement = viewModel.screenplayElements.first(where: { $0.id == editingGroupId }),
-                   editingElement.type == .parenthetical {
-                    return "Remove Parenthetical"
+                   let editingElement = viewModel.screenplayElements.first(where: { $0.id == editingGroupId }) {
+                    switch editingElement.type {
+                    case .parenthetical:
+                        return "Remove Parenthetical"
+                    case .action:
+                        return "Remove Action"
+                    default:
+                        return "Remove"
+                    }
                 } else {
                     return "Remove"
                 }
