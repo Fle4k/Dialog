@@ -1,4 +1,0 @@
-Target dependency graph (2 targets)
-Target 'DialogTests' in project 'Dialog'
-➜ Explicit dependency on target 'Dialog' in project 'Dialog'
-Target 'Dialog' in project 'Dialog' (no dependencies)

@@ -21,6 +21,7 @@ final class DialogViewModel: ObservableObject {
     @Published var isEditingElementType: Bool = false
     @Published var editingGroupId: UUID? = nil
     @Published var editingOriginalSpeaker: Speaker? = nil
+    @Published var insertionPosition: Int? = nil // For inserting elements at specific positions
     
     // MARK: - UI State Properties (moved from View)
     @Published var showInputArea: Bool = false
@@ -46,8 +47,12 @@ final class DialogViewModel: ObservableObject {
     }
     
     func showInputAreaWithFocus() {
+        print("🛠️ showInputAreaWithFocus: CALLED - isEditingText=\(isEditingText)")
         if !isEditingText {
+            print("🛠️ showInputAreaWithFocus: NOT editing, calling setNextSpeakerBasedOnLastText()")
             setNextSpeakerBasedOnLastText()
+        } else {
+            print("🛠️ showInputAreaWithFocus: IS editing, preserving current state")
         }
         showInputArea = true
         // Trigger focus after a brief delay
@@ -90,6 +95,8 @@ final class DialogViewModel: ObservableObject {
 
     
     func startEditingElement(_ element: ScreenplayElement) {
+        print("🛠️ startEditingElement: STARTING edit for element \(element.id) with content '\(element.content)'")
+        
         isEditingText = true
         editingGroupId = element.id // Use element ID directly for individual editing
         editingOriginalSpeaker = element.speaker
@@ -99,11 +106,47 @@ final class DialogViewModel: ObservableObject {
         selectedSpeaker = element.speaker ?? .a
         selectedElementType = element.type
         
+        print("🛠️ startEditingElement: Set isEditingText=\(isEditingText), editingGroupId=\(editingGroupId?.uuidString ?? "nil")")
+        print("🛠️ startEditingElement: Set inputText='\(inputText)', selectedSpeaker=\(selectedSpeaker), selectedElementType=\(selectedElementType)")
+        
         if isFullscreenMode {
             exitFullscreenMode()
         } else {
             showInputAreaWithFocus()
         }
+        
+        print("🛠️ startEditingElement: COMPLETED - isEditingText=\(isEditingText), editingGroupId=\(editingGroupId?.uuidString ?? "nil")")
+    }
+    
+    func startEditingGroup(_ groupedElement: GroupedElement) {
+        print("🛠️ startEditingGroup: STARTING edit for group \(groupedElement.id)")
+        print("🛠️ startEditingGroup: BEFORE setting - isEditingText=\(isEditingText), editingGroupId=\(editingGroupId?.uuidString ?? "nil")")
+        
+        isEditingText = true
+        isEditingElementType = true  // This enables the horizontal menu with +extensions
+        editingGroupId = groupedElement.id
+        editingOriginalSpeaker = groupedElement.speaker
+        
+        print("🛠️ startEditingGroup: AFTER setting - isEditingText=\(isEditingText), isEditingElementType=\(isEditingElementType), editingGroupId=\(editingGroupId?.uuidString ?? "nil")")
+        
+        // Edit the first element in the group (whether dialogue, parenthetical, or action)
+        if let firstElement = groupedElement.elements.first {
+            inputText = firstElement.content
+            selectedSpeaker = firstElement.speaker ?? groupedElement.speaker ?? .a
+            selectedElementType = firstElement.type
+            
+            print("🛠️ startEditingGroup: Editing first element with content '\(firstElement.content)', type=\(firstElement.type)")
+        }
+        
+        print("🛠️ startEditingGroup: BEFORE showInputAreaWithFocus - isEditingText=\(isEditingText), editingGroupId=\(editingGroupId?.uuidString ?? "nil")")
+        
+        if isFullscreenMode {
+            exitFullscreenMode()
+        } else {
+            showInputAreaWithFocus()
+        }
+        
+        print("🛠️ startEditingGroup: COMPLETED - isEditingText=\(isEditingText), isEditingElementType=\(isEditingElementType), editingGroupId=\(editingGroupId?.uuidString ?? "nil")")
     }
     
     func startEditingElementType(_ element: ScreenplayElement) {
@@ -142,8 +185,12 @@ final class DialogViewModel: ObservableObject {
         let trimmedText = inputText.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !trimmedText.isEmpty else { return }
         
+        print("🛠️ addText: STARTING - isEditingText=\(isEditingText), editingGroupId=\(editingGroupId?.uuidString ?? "nil")")
+        print("🛠️ addText: trimmedText='\(trimmedText)', selectedSpeaker=\(selectedSpeaker), selectedElementType=\(selectedElementType)")
+        
         if isEditingText, let editingGroupId = editingGroupId {
-            // We're editing an individual element
+            // We're editing - could be individual element or group
+            print("🛠️ addText: EDITING mode detected - calling saveEditedElement")
             saveEditedElement(elementId: editingGroupId, newText: trimmedText, newSpeaker: selectedSpeaker, newType: selectedElementType)
             
             // Add haptic feedback for successful edit confirmation
@@ -151,14 +198,22 @@ final class DialogViewModel: ObservableObject {
             notificationFeedback.notificationOccurred(.success)
         } else {
             // Add new screenplay element
+            print("🛠️ addText: ADD mode detected - calling addScreenplayElement")
             addScreenplayElement()
         }
         
         inputText = ""
+        
+        // Check if we were in edit mode before exiting
+        let wasEditing = isEditingText || isEditingElementType
+        
         exitEditMode()
         
-        // Stay in writing mode after adding text for continuous dialog writing
-        showInputAreaWithFocus()
+        // Only auto-focus and scroll for new content, not when editing existing content
+        if !wasEditing {
+            // Stay in writing mode after adding text for continuous dialog writing
+            showInputAreaWithFocus()
+        }
     }
     
     func addScreenplayElement() {
@@ -194,10 +249,21 @@ final class DialogViewModel: ObservableObject {
         let speaker = (selectedElementType == .parenthetical || selectedElementType.requiresSpeaker) ? selectedSpeaker : nil
         let element = ScreenplayElement(type: selectedElementType, content: processedContent, speaker: speaker)
         
+        print("🎭 addScreenplayElement: Creating element with type \(selectedElementType), speaker \(speaker?.rawValue ?? "nil"), content: '\(processedContent)'")
+        
         // Record undo action for screenplay element
         undoManager.recordAction(.addScreenplayElement(element))
         
-        screenplayElements.append(element)
+        // Insert at specific position if set (for parentheticals in edit mode), otherwise append
+        if let insertAtIndex = insertionPosition {
+            screenplayElements.insert(element, at: insertAtIndex)
+            print("🎭 addScreenplayElement: Inserted element at position \(insertAtIndex)")
+            // Clear insertion position after use
+            insertionPosition = nil
+        } else {
+            screenplayElements.append(element)
+            print("🎭 addScreenplayElement: Appended element to end")
+        }
         
         print("🟡 addScreenplayElement BEFORE handleElementTypeSpecificLogic: selectedElementType=\(selectedElementType), selectedSpeaker=\(selectedSpeaker)")
         
@@ -262,10 +328,13 @@ final class DialogViewModel: ObservableObject {
 
     
     func exitEditMode() {
+        print("🛠️ exitEditMode: CALLED - before: isEditingText=\(isEditingText), editingGroupId=\(editingGroupId?.uuidString ?? "nil")")
         isEditingText = false
         isEditingElementType = false
         editingGroupId = nil
         editingOriginalSpeaker = nil
+        insertionPosition = nil
+        print("🛠️ exitEditMode: COMPLETED - after: isEditingText=\(isEditingText), editingGroupId=\(editingGroupId?.uuidString ?? "nil")")
     }
     
     func updateText(withId id: UUID, newText: String, newSpeaker: Speaker) {
@@ -366,6 +435,34 @@ final class DialogViewModel: ObservableObject {
         if screenplayElements.isEmpty && isFullscreenMode {
             exitFullscreenMode()
         }
+    }
+    
+    func removeParentheticalCompletely(elementId: UUID) {
+        guard let index = screenplayElements.firstIndex(where: { $0.id == elementId }) else { 
+            print("❌ Could not find parenthetical with ID: \(elementId)")
+            return 
+        }
+        
+        let element = screenplayElements[index]
+        print("🗑️ removeParentheticalCompletely: Removing parenthetical '\(element.content)'")
+        
+        // Record undo action
+        undoManager.recordAction(.deleteScreenplayElement(element, index))
+        
+        // Remove the parenthetical completely
+        screenplayElements.removeAll { $0.id == elementId }
+        flaggedTextIds.remove(elementId)
+        
+        // Clear input text so parenthetical content doesn't appear in input field
+        inputText = ""
+        
+        // Reset to normal dialogue writing mode (not parenthetical mode)
+        selectedElementType = .dialogue
+        
+        // Set up for continuing dialogue without the deleted parenthetical content
+        setNextSpeakerBasedOnLastText()
+        
+        print("✅ Successfully removed parenthetical completely - input cleared, back to dialogue mode")
     }
     
     func getSpeakerName(for speaker: Speaker) -> String {
@@ -924,5 +1021,57 @@ final class DialogViewModel: ObservableObject {
         )
         
         print("✅ Successfully changed element type for \(elementId) from \(originalElement.type) to \(newType)")
+        
+        // After changing element type, set up for continuing dialogue but don't auto-scroll
+        setNextSpeakerBasedOnLastText()
+    }
+    
+    func startAddingParentheticalInEditMode() {
+        // This method is called when user taps "+Parenthetical" while editing an element
+        // Instead of changing the current element, we want to add a new parenthetical ABOVE it
+        
+        // Get the speaker and position from the element being edited
+        var speakerForParenthetical: Speaker = .a
+        var insertAtIndex: Int? = nil
+        
+        if let editingGroupId = editingGroupId,
+           let editingElementIndex = screenplayElements.firstIndex(where: { $0.id == editingGroupId }) {
+            let editingElement = screenplayElements[editingElementIndex]
+            if let elementSpeaker = editingElement.speaker {
+                speakerForParenthetical = elementSpeaker
+                insertAtIndex = editingElementIndex // Insert BEFORE the element being edited (above it)
+                print("🎭 startAddingParentheticalInEditMode: Found editing element at index \(editingElementIndex) with speaker \(elementSpeaker.rawValue)")
+            }
+        } else {
+            print("🎭 startAddingParentheticalInEditMode: Could not find editing element, defaulting to speaker A")
+            print("   editingGroupId: \(editingGroupId?.uuidString ?? "nil")")
+            print("   screenplayElements count: \(screenplayElements.count)")
+        }
+        
+        print("🎭 startAddingParentheticalInEditMode: Setting up parenthetical for speaker \(speakerForParenthetical.rawValue) at position \(insertAtIndex?.description ?? "end")")
+        
+        // DON'T exit edit mode completely - we want to stay in edit mode but switch to adding parenthetical
+        // Clear the current input text and set up for parenthetical
+        inputText = ""
+        selectedElementType = .parenthetical
+        selectedSpeaker = speakerForParenthetical
+        
+        // Set the insertion position so the parenthetical gets added above the current line
+        insertionPosition = insertAtIndex
+        
+        // Stay in edit mode but switch to parenthetical input mode
+        isEditingText = false // We're no longer editing the original text
+        isEditingElementType = false // We're not editing element type either
+        // Keep editingGroupId so we know which element we were editing
+        
+        // Show input area with focus
+        showInputArea = true
+        
+        // Trigger focus after a brief delay
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
+            self.shouldFocusInput = true
+        }
+        
+        print("🎭 startAddingParentheticalInEditMode: Final setup - selectedSpeaker: \(selectedSpeaker.rawValue), selectedElementType: \(selectedElementType), insertionPosition: \(insertionPosition?.description ?? "nil")")
     }
 } 

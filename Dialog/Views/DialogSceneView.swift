@@ -47,11 +47,9 @@ struct GroupedElementRowView: View {
     let isBeingEdited: Bool
     
     var isAnyElementFlagged: Bool {
-        let flagged = groupedElement.elements.contains { element in
+        return groupedElement.elements.contains { element in
             viewModel.isElementFlagged(element.id)
         }
-        print("🎨 Visual check for group \(groupedElement.id): flagged = \(flagged)")
-        return flagged
     }
     
     var body: some View {
@@ -72,6 +70,17 @@ struct GroupedElementRowView: View {
         .background(isAnyElementFlagged ? Color.primary : Color.clear)
         .foregroundColor(isAnyElementFlagged ? Color(.systemBackground) : Color(.label))
         .cornerRadius(8)
+        .contentShape(Rectangle())
+        .onTapGesture {
+            print("🛠️ GROUP ROW TAP: Group \(groupedElement.id) tapped - no action")
+            // Regular tap does nothing - user must long press to edit
+        }
+        .onLongPressGesture(minimumDuration: 0.5) {
+            print("🛠️ GROUP ROW LONG PRESS: Group \(groupedElement.id) long pressed")
+            // Long press starts editing the group content
+            viewModel.startEditingGroup(groupedElement)
+        }
+
     }
     
     private var speakerAGroupView: some View {
@@ -87,7 +96,8 @@ struct GroupedElementRowView: View {
                         alignment: .leading,
                         showSpeakerName: index == 0 && shouldShowSpeakerName,
                         shouldShowContd: index == 0 && shouldShowContd,
-                        customSpeakerNames: customSpeakerNames
+                        customSpeakerNames: customSpeakerNames,
+                        groupedElement: groupedElement
                     )
                 }
             }
@@ -109,7 +119,8 @@ struct GroupedElementRowView: View {
                         alignment: .trailing,
                         showSpeakerName: index == 0 && shouldShowSpeakerName,
                         shouldShowContd: index == 0 && shouldShowContd,
-                        customSpeakerNames: customSpeakerNames
+                        customSpeakerNames: customSpeakerNames,
+                        groupedElement: groupedElement
                     )
                 }
             }
@@ -128,7 +139,8 @@ struct GroupedElementRowView: View {
                     alignment: element.type == .action ? .leading : .center,
                     showSpeakerName: index == 0 && shouldShowSpeakerName,
                     shouldShowContd: index == 0 && shouldShowContd,
-                    customSpeakerNames: customSpeakerNames
+                    customSpeakerNames: customSpeakerNames,
+                    groupedElement: groupedElement
                 )
             }
         }
@@ -148,11 +160,15 @@ class ScrollCoordinator: ObservableObject {
     }
     
     func handleElementCountChange(proxy: ScrollViewProxy, viewModel: DialogViewModel) {
-        scrollToLastElement(proxy: proxy, elements: viewModel.screenplayElements)
+        // Don't auto-scroll during edit mode - user wants to stay in place
+        if !viewModel.isEditingText && !viewModel.isEditingElementType {
+            scrollToLastElement(proxy: proxy, elements: viewModel.screenplayElements)
+        }
     }
     
     func handleInputAreaChange(proxy: ScrollViewProxy, viewModel: DialogViewModel, showInputArea: Bool) {
-        if showInputArea && !viewModel.screenplayElements.isEmpty {
+        // Don't auto-scroll during edit mode - user wants to stay in place
+        if showInputArea && !viewModel.screenplayElements.isEmpty && !viewModel.isEditingText && !viewModel.isEditingElementType {
             DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) {
                 self.scrollToLastElement(proxy: proxy, elements: viewModel.screenplayElements)
             }
@@ -160,7 +176,8 @@ class ScrollCoordinator: ObservableObject {
     }
     
     func handleFocusChange(proxy: ScrollViewProxy, viewModel: DialogViewModel, focused: Bool) {
-        if focused && !viewModel.screenplayElements.isEmpty {
+        // Don't auto-scroll during edit mode - user wants to stay in place  
+        if focused && !viewModel.screenplayElements.isEmpty && !viewModel.isEditingText && !viewModel.isEditingElementType {
             DispatchQueue.main.asyncAfter(deadline: .now() + 0.4) {
                 self.scrollToLastElement(proxy: proxy, elements: viewModel.screenplayElements)
             }
@@ -353,6 +370,24 @@ struct DialogSceneView: View {
         List {
             if !viewModel.screenplayElements.isEmpty {
                 screenplayElementsForEach
+                
+                // Add invisible spacer that can handle background taps
+                Color.clear
+                    .frame(height: 200)
+                    .listRowBackground(Color.clear)
+                    .listRowSeparator(.hidden)
+                    .contentShape(Rectangle())
+                    .onTapGesture {
+                        print("🛠️ BACKGROUND SPACER TAP: isEditingElementType=\(viewModel.isEditingElementType)")
+                        // Handle background taps for mode transitions
+                        if viewModel.isEditingElementType {
+                            print("🛠️ BACKGROUND SPACER: Calling exitEditMode()")
+                            viewModel.exitEditMode()
+                        } else {
+                            print("🛠️ BACKGROUND SPACER: Calling handleViewTap()")
+                            viewModel.handleViewTap()
+                        }
+                    }
             } else {
                 emptyStateView
             }
@@ -360,14 +395,6 @@ struct DialogSceneView: View {
         .listStyle(.plain)
         .contentMargins(.bottom, viewModel.showInputArea ? 60 : 0)
         .contentMargins(.top, viewModel.isFullscreenMode ? 0 : 0)
-        .onTapGesture {
-            // If editing element type, exit the edit mode
-            if viewModel.isEditingElementType {
-                viewModel.exitEditMode()
-            } else {
-                viewModel.handleViewTap()
-            }
-        }
         .gesture(
             // Add swipe gesture to go back when in fullscreen mode
             viewModel.isFullscreenMode ? DragGesture()
@@ -396,11 +423,15 @@ struct DialogSceneView: View {
         .frame(maxWidth: .infinity, maxHeight: .infinity)
         .listRowBackground(Color.clear)
         .listRowSeparator(.hidden)
+        .contentShape(Rectangle())
         .onTapGesture {
+            print("🛠️ EMPTY STATE TAP: isEditingElementType=\(viewModel.isEditingElementType)")
             // If editing element type, exit the edit mode
             if viewModel.isEditingElementType {
+                print("🛠️ EMPTY STATE: Calling exitEditMode()")
                 viewModel.exitEditMode()
             } else {
+                print("🛠️ EMPTY STATE: Calling handleViewTap()")
                 viewModel.handleViewTap()
             }
         }
@@ -462,8 +493,6 @@ struct DialogSceneView: View {
         var groupedElements: [GroupedElement] = []
         var i = 0
         
-        print("🎭 getGroupedElements: starting with \(viewModel.screenplayElements.count) elements")
-        
         while i < viewModel.screenplayElements.count {
             let element = viewModel.screenplayElements[i]
             
@@ -474,7 +503,6 @@ struct DialogSceneView: View {
                 
                 // Add current element
                 elementsInGroup.append(element)
-                print("🎭 Starting new group for speaker \(speaker.rawValue), element type: \(element.type)")
                 
                 // Look ahead for consecutive elements from the same speaker
                 var j = i + 1
@@ -483,10 +511,8 @@ struct DialogSceneView: View {
                     // Group together if same speaker and requires speaker
                     if nextElement.speaker == speaker && nextElement.type.requiresSpeaker {
                         elementsInGroup.append(nextElement)
-                        print("🎭 Adding element to group: speaker \(speaker.rawValue), type: \(nextElement.type)")
                         j += 1
                     } else {
-                        print("🎭 Breaking group: next element speaker \(nextElement.speaker?.rawValue ?? "nil"), type: \(nextElement.type)")
                         break
                     }
                 }
@@ -498,7 +524,6 @@ struct DialogSceneView: View {
                     elements: elementsInGroup
                 )
                 groupedElements.append(groupedElement)
-                print("🎭 Created group \(groupedElement.id) with \(elementsInGroup.count) elements for speaker \(speaker.rawValue)")
                 
                 i = j
             } else {
@@ -509,19 +534,16 @@ struct DialogSceneView: View {
                     elements: [element]
                 )
                 groupedElements.append(groupedElement)
-                print("🎭 Created single-element group for non-dialogue element: \(element.type)")
                 i += 1
             }
         }
         
-        print("🎭 Final result: \(groupedElements.count) groups")
         return groupedElements
     }
     
     private func shouldShowSpeakerName(for index: Int) -> Bool {
         let groupedElements = getGroupedElements()
         guard index < groupedElements.count else { 
-            print("🏷️ shouldShowSpeakerName: index \(index) out of bounds, showing speaker name")
             return true 
         }
         
@@ -529,16 +551,13 @@ struct DialogSceneView: View {
         
         // Always show speaker name for first group
         guard index > 0 else { 
-            print("🏷️ shouldShowSpeakerName: first group (\(currentGroup.id)), showing speaker name")
             return true 
         }
         
         let previousGroup = groupedElements[index - 1]
         
         // Show speaker name only if the speaker changed from the previous group
-        let shouldShow = currentGroup.speaker != previousGroup.speaker
-        print("🏷️ shouldShowSpeakerName: index \(index), current: \(currentGroup.speaker?.rawValue ?? "nil"), previous: \(previousGroup.speaker?.rawValue ?? "nil"), shouldShow: \(shouldShow)")
-        return shouldShow
+        return currentGroup.speaker != previousGroup.speaker
     }
     
     /// Determines if a speaker should show "(CONT'D)" after their name
@@ -562,7 +581,6 @@ struct DialogSceneView: View {
                     for j in (i+1)..<index {
                         let intermediateGroup = groupedElements[j]
                         if intermediateGroup.elements.contains(where: { $0.type == .action }) {
-                            print("🏷️ shouldShowContd: Speaker \(currentSpeaker.rawValue) continuing after action, showing CONT'D")
                             return true
                         }
                     }
@@ -585,7 +603,6 @@ struct DialogSceneView: View {
     private var shouldShowSpeakerSelector: Bool {
         // Always show speaker selector when input area is visible
         // This allows users to change speakers for the entire row even after adding parenthicals
-        print("🎯 Speaker selector: SHOW (always available for speaker switching)")
         return true
     }
     
@@ -668,14 +685,15 @@ struct IndividualElementView: View {
     let showSpeakerName: Bool
     let shouldShowContd: Bool
     let customSpeakerNames: [Speaker: String]
+    let groupedElement: GroupedElement // Add reference to the grouped element
     
     // Computed properties for selective blurring
     private var isEditingElementContent: Bool {
-        viewModel.isEditingText && viewModel.editingGroupId == element.id
+        viewModel.isEditingText && viewModel.editingGroupId == groupedElement.id
     }
     
     private var isEditingCharacterExtension: Bool {
-        viewModel.isEditingElementType && viewModel.editingGroupId == element.id
+        viewModel.isEditingElementType && viewModel.editingGroupId == groupedElement.id
     }
     
     var body: some View {
@@ -702,14 +720,22 @@ struct IndividualElementView: View {
                             .foregroundColor(.secondary)
                             .blur(radius: isEditingCharacterExtension ? 2 : 0)
                             .animation(.easeInOut(duration: 0.3), value: isEditingCharacterExtension)
-                            .onTapGesture {
-                                // Quick edit element type by tapping on the extension
-                                startEditingElementType()
-                            }
-                            .onLongPressGesture(minimumDuration: 0.5) {
-                                // Long press on character extension also activates element type editing
-                                startEditingElementType()
-                            }
+                            .simultaneousGesture(
+                                TapGesture()
+                                    .onEnded { _ in
+                                        print("🛠️ CHARACTER EXTENSION TAP: element \(element.id)")
+                                        // Quick edit element type by tapping on the extension
+                                        startEditingElementType()
+                                    }
+                            )
+                            .simultaneousGesture(
+                                LongPressGesture(minimumDuration: 0.5)
+                                    .onEnded { _ in
+                                        print("🛠️ CHARACTER EXTENSION LONG PRESS: element \(element.id)")
+                                        // Long press on character extension also activates element type editing
+                                        startEditingElementType()
+                                    }
+                            )
                     }
                 }
             }
@@ -724,10 +750,7 @@ struct IndividualElementView: View {
                         .multilineTextAlignment(textAlignment)
                         .blur(radius: isEditingElementContent ? 2 : 0)
                         .animation(.easeInOut(duration: 0.3), value: isEditingElementContent)
-                        .onLongPressGesture(minimumDuration: 0.5) {
-                            // Long press on content opens edit mode
-                            editElementContent()
-                        }
+
                 } else {
                     Text(element.content)
                         .font(.body)
@@ -736,10 +759,7 @@ struct IndividualElementView: View {
                         .frame(maxWidth: .infinity, alignment: frameAlignment)
                         .blur(radius: isEditingElementContent ? 2 : 0)
                         .animation(.easeInOut(duration: 0.3), value: isEditingElementContent)
-                        .onLongPressGesture(minimumDuration: 0.5) {
-                            // Long press on content opens edit mode
-                            editElementContent()
-                        }
+
                 }
             }
         }
@@ -759,12 +779,15 @@ struct IndividualElementView: View {
     }
     
     private func editElementContent() {
+        print("🛠️ editElementContent: TAP detected on element \(element.id) with content '\(element.content)'")
+        
         // Add haptic feedback for content editing
         let impactFeedback = UIImpactFeedbackGenerator(style: .light)
         impactFeedback.impactOccurred()
         
-        // Start editing the element content
-        viewModel.startEditingElement(element)
+        // Start editing the group that contains this element
+        print("🛠️ editElementContent: Calling viewModel.startEditingGroup")
+        viewModel.startEditingGroup(groupedElement)
     }
     
     private var textAlignment: TextAlignment {
@@ -1193,10 +1216,19 @@ struct ElementTypeSelectorView: View {
     }
     
     // Define the order of element types as requested: Action, Parenthetical, Off Screen, Voice Over, Text
-    // When editing element type, show Remove option plus all character extension types
+    // When editing element type, show different options based on what's being edited
     private var elementTypes: [ScreenplayElementType] {
         if isEditingElementType {
-            return [.dialogue, .offScreen, .voiceOver, .text]  // dialogue will be shown as "Remove"
+            // Check if we're editing a parenthetical specifically
+            if let editingGroupId = viewModel.editingGroupId,
+               let editingElement = viewModel.screenplayElements.first(where: { $0.id == editingGroupId }),
+               editingElement.type == .parenthetical {
+                // For parentheticals, only show Remove option
+                return [.dialogue]  // dialogue will be shown as "Remove"
+            } else {
+                // For dialogue, show character extension types and parenthetical (no Remove option)
+                return [.parenthetical, .offScreen, .voiceOver, .text]
+            }
         } else {
             return [.action, .parenthetical, .offScreen, .voiceOver, .text]
         }
@@ -1212,12 +1244,29 @@ struct ElementTypeSelectorView: View {
                         impactFeedback.impactOccurred()
                         
                         if isEditingElementType {
-                            // When editing element type, apply the change and exit edit mode
-                            if let editingGroupId = viewModel.editingGroupId {
-                                // dialogue type means "Remove" - keep as dialogue, others are character extensions
-                                viewModel.changeElementType(elementId: editingGroupId, to: elementType)
+                            if elementType == .dialogue {
+                                // Handle "Remove" button
+                                if let editingGroupId = viewModel.editingGroupId,
+                                   let editingElement = viewModel.screenplayElements.first(where: { $0.id == editingGroupId }) {
+                                    if editingElement.type == .parenthetical {
+                                        // For parentheticals, "Remove" means delete completely
+                                        viewModel.removeParentheticalCompletely(elementId: editingGroupId)
+                                    } else {
+                                        // For dialogue with extensions, "Remove" means change back to plain dialogue
+                                        viewModel.changeElementType(elementId: editingGroupId, to: .dialogue)
+                                    }
+                                }
+                                viewModel.exitEditMode()
+                            } else if elementType == .parenthetical {
+                                // Add new parenthetical above current line
+                                viewModel.startAddingParentheticalInEditMode()
+                            } else {
+                                // Apply character extension and exit edit mode
+                                if let editingGroupId = viewModel.editingGroupId {
+                                    viewModel.changeElementType(elementId: editingGroupId, to: elementType)
+                                }
+                                viewModel.exitEditMode()
                             }
-                            viewModel.exitEditMode()
                         } else {
                             // Normal behavior: Toggle between selected type and dialogue
                             if selectedElementType == elementType {
@@ -1231,7 +1280,12 @@ struct ElementTypeSelectorView: View {
                             .font(.caption)
                             .fontWeight(isCurrentlySelected(elementType) ? .black : .regular)
                             .foregroundColor(buttonTextColor(for: elementType))
-                            .frame(minWidth: 80) // Minimum width, but allow content to determine size
+                            .multilineTextAlignment(.center)
+                            .frame(
+                                minWidth: isEditingElementType && elementType == .dialogue && isEditingParenthetical() ? 180 : 80,
+                                maxWidth: isEditingElementType && elementType == .dialogue && isEditingParenthetical() ? .infinity : nil,
+                                alignment: .center
+                            )
                             .padding(.vertical, 6)
                             .padding(.horizontal, 12)
                     }
@@ -1251,8 +1305,19 @@ struct ElementTypeSelectorView: View {
     }
     
     private func getDisplayName(for elementType: ScreenplayElementType) -> String {
-        if isEditingElementType && elementType == .dialogue {
-            return "Remove"
+        if isEditingElementType {
+            if elementType == .dialogue {
+                // Check if we're editing a parenthetical to show appropriate remove text
+                if let editingGroupId = viewModel.editingGroupId,
+                   let editingElement = viewModel.screenplayElements.first(where: { $0.id == editingGroupId }),
+                   editingElement.type == .parenthetical {
+                    return "Remove Parenthetical"
+                } else {
+                    return "Remove"
+                }
+            } else {
+                return "+ \(elementType.displayName)"
+            }
         } else {
             return elementType.displayName
         }
@@ -1284,6 +1349,14 @@ struct ElementTypeSelectorView: View {
         } else {
             return .primary
         }
+    }
+    
+    private func isEditingParenthetical() -> Bool {
+        guard let editingGroupId = viewModel.editingGroupId,
+              let editingElement = viewModel.screenplayElements.first(where: { $0.id == editingGroupId }) else {
+            return false
+        }
+        return editingElement.type == .parenthetical
     }
 }
 
