@@ -950,6 +950,9 @@ final class DialogViewModel: ObservableObject {
         } else {
             screenplayElements.append(element)
         }
+        
+        // Update grouped elements so the UI reflects the restored element
+        updateGroupedElements()
     }
     
     func undoEditScreenplayElement(id: UUID, oldContent: String, oldSpeaker: Speaker?) {

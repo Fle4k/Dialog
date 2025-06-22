@@ -692,9 +692,11 @@ struct IndividualElementView: View {
                         .animation(.easeInOut(duration: 0.3), value: isEditingElementContent)
                         .contentShape(Rectangle())
                         .onTapGesture {
-                            editIndividualElement()
+                            // Normal tap toggles fullscreen mode
+                            viewModel.handleViewTap()
                         }
                         .onLongPressGesture(minimumDuration: 0.5) {
+                            // Long press edits the individual element
                             editIndividualElement()
                         }
                 } else {
@@ -707,9 +709,11 @@ struct IndividualElementView: View {
                         .animation(.easeInOut(duration: 0.3), value: isEditingElementContent)
                         .contentShape(Rectangle())
                         .onTapGesture {
-                            editIndividualElement()
+                            // Normal tap toggles fullscreen mode
+                            viewModel.handleViewTap()
                         }
                         .onLongPressGesture(minimumDuration: 0.5) {
+                            // Long press edits the individual element
                             editIndividualElement()
                         }
                 }
