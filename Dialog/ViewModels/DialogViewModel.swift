@@ -67,14 +67,24 @@ final class DialogViewModel: ObservableObject {
     }
     
     func enterFullscreenMode() {
+        // Use smoother state transition sequence
         isFullscreenMode = true
-        showInputArea = false
-        shouldFocusInput = false
+        
+        // Delay hiding input area to allow smooth transition
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.15) {
+            self.showInputArea = false
+            self.shouldFocusInput = false
+        }
     }
     
     func exitFullscreenMode() {
+        // Smoother transition sequence
         isFullscreenMode = false
-        showInputAreaWithFocus()
+        
+        // Add slight delay before showing input to prevent animation conflicts
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
+            self.showInputAreaWithFocus()
+        }
     }
     
     func handleViewTap() {
@@ -165,9 +175,12 @@ final class DialogViewModel: ObservableObject {
     func cancelEditMode() {
         exitEditMode()
         inputText = ""
+        // Always return to dialog mode when canceling edit
+        selectedElementType = .dialogue
         setNextSpeakerBasedOnLastText()
         // Don't hide input area - stay in writing mode
         showInputAreaWithFocus()
+        print("🔄 Cancel edit: Reset to dialog mode, next speaker: \(selectedSpeaker)")
     }
     
     func setTemporarySpeaker(_ speaker: Speaker) {
@@ -201,8 +214,14 @@ final class DialogViewModel: ObservableObject {
         
         exitEditMode()
         
-        // Only auto-focus and scroll for new content, not when editing existing content
-        if !wasEditing {
+        // After editing, always return to writing mode for continued dialogue writing
+        if wasEditing {
+            // Reset to dialog mode and stay in writing mode
+            selectedElementType = .dialogue
+            showInputAreaWithFocus()
+            print("🔄 Post-edit: Returned to writing mode in dialog mode")
+        } else {
+            // Only auto-focus and scroll for new content, not when editing existing content
             // Stay in writing mode after adding text for continuous dialog writing
             showInputAreaWithFocus()
         }
@@ -1020,7 +1039,12 @@ final class DialogViewModel: ObservableObject {
         updateGroupedElements()
         
         print("✅ Successfully edited individual element \(elementId): '\(newText)' by \(newSpeaker)")
+        
+        // After editing any element, always return to dialog mode for better workflow
+        selectedElementType = .dialogue
         setNextSpeakerBasedOnLastText()
+        
+        print("🔄 After editing: Reset to dialog mode, next speaker: \(selectedSpeaker)")
     }
     
     func changeElementType(elementId: UUID, to newType: ScreenplayElementType) {
