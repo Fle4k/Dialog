@@ -29,11 +29,15 @@ final class DialogViewModel: ObservableObject {
     @Published var shouldFocusInput: Bool = false
     @Published var currentTitle: String = ""
     
+    // MARK: - Cached Properties for Performance
+    @Published private(set) var groupedElements: [GroupedElement] = []
+    
     // MARK: - UI State Management
     func initializeForNewSession() {
         currentTitle = ""
         // Start in writing mode for immediate dialog writing
         isFullscreenMode = false
+        updateGroupedElements()
         showInputAreaWithFocus()
     }
     
@@ -47,12 +51,8 @@ final class DialogViewModel: ObservableObject {
     }
     
     func showInputAreaWithFocus() {
-        print("🛠️ showInputAreaWithFocus: CALLED - isEditingText=\(isEditingText)")
         if !isEditingText {
-            print("🛠️ showInputAreaWithFocus: NOT editing, calling setNextSpeakerBasedOnLastText()")
             setNextSpeakerBasedOnLastText()
-        } else {
-            print("🛠️ showInputAreaWithFocus: IS editing, preserving current state")
         }
         showInputArea = true
         // Trigger focus after a brief delay
@@ -89,10 +89,6 @@ final class DialogViewModel: ObservableObject {
             enterFullscreenMode()
         }
     }
-    
-
-    
-
     
     func startEditingElement(_ element: ScreenplayElement) {
         print("🛠️ startEditingElement: STARTING edit for element \(element.id) with content '\(element.content)'")
@@ -185,12 +181,8 @@ final class DialogViewModel: ObservableObject {
         let trimmedText = inputText.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !trimmedText.isEmpty else { return }
         
-        print("🛠️ addText: STARTING - isEditingText=\(isEditingText), editingGroupId=\(editingGroupId?.uuidString ?? "nil")")
-        print("🛠️ addText: trimmedText='\(trimmedText)', selectedSpeaker=\(selectedSpeaker), selectedElementType=\(selectedElementType)")
-        
         if isEditingText, let editingGroupId = editingGroupId {
             // We're editing - could be individual element or group
-            print("🛠️ addText: EDITING mode detected - calling saveEditedElement")
             saveEditedElement(elementId: editingGroupId, newText: trimmedText, newSpeaker: selectedSpeaker, newType: selectedElementType)
             
             // Add haptic feedback for successful edit confirmation
@@ -198,7 +190,6 @@ final class DialogViewModel: ObservableObject {
             notificationFeedback.notificationOccurred(.success)
         } else {
             // Add new screenplay element
-            print("🛠️ addText: ADD mode detected - calling addScreenplayElement")
             addScreenplayElement()
         }
         
@@ -256,13 +247,15 @@ final class DialogViewModel: ObservableObject {
         
         // Insert at specific position if set (for parentheticals in edit mode), otherwise append
         if let insertAtIndex = insertionPosition {
-            screenplayElements.insert(element, at: insertAtIndex)
-            print("🎭 addScreenplayElement: Inserted element at position \(insertAtIndex)")
+                    screenplayElements.insert(element, at: insertAtIndex)
+        print("🎭 addScreenplayElement: Inserted element at position \(insertAtIndex)")
+        updateGroupedElements()
             // Clear insertion position after use
             insertionPosition = nil
         } else {
-            screenplayElements.append(element)
-            print("🎭 addScreenplayElement: Appended element to end")
+                    screenplayElements.append(element)
+        print("🎭 addScreenplayElement: Appended element to end")
+        updateGroupedElements()
         }
         
         print("🟡 addScreenplayElement BEFORE handleElementTypeSpecificLogic: selectedElementType=\(selectedElementType), selectedSpeaker=\(selectedSpeaker)")
@@ -325,8 +318,6 @@ final class DialogViewModel: ObservableObject {
     }
     
     // MARK: - Edit Mode Methods
-
-    
     func exitEditMode() {
         print("🛠️ exitEditMode: CALLED - before: isEditingText=\(isEditingText), editingGroupId=\(editingGroupId?.uuidString ?? "nil")")
         isEditingText = false
@@ -393,7 +384,7 @@ final class DialogViewModel: ObservableObject {
         textlines.remove(atOffsets: offsets)
     }
     
-        // MARK: - Flag Management (works for both textlines and screenplay elements)
+    // MARK: - Flag Management (works for both textlines and screenplay elements)
     func toggleFlag(for id: UUID) {
         let wasAdd = !flaggedTextIds.contains(id)
         print("🚩 toggleFlag called for ID: \(id), wasAdd: \(wasAdd)")
@@ -430,6 +421,7 @@ final class DialogViewModel: ObservableObject {
         
         screenplayElements.removeAll { $0.id == id }
         flaggedTextIds.remove(id)
+        updateGroupedElements()
         
         // If we deleted the last element and we're in fullscreen mode, exit to writing mode
         if screenplayElements.isEmpty && isFullscreenMode {
@@ -452,6 +444,7 @@ final class DialogViewModel: ObservableObject {
         // Remove the parenthetical completely
         screenplayElements.removeAll { $0.id == elementId }
         flaggedTextIds.remove(elementId)
+        updateGroupedElements()
         
         // Clear input text so parenthetical content doesn't appear in input field
         inputText = ""
@@ -478,6 +471,7 @@ final class DialogViewModel: ObservableObject {
         // Reset input state
         inputText = ""
         setNextSpeakerBasedOnLastText()
+        updateGroupedElements()
     }
     
     // MARK: - Speaker Management
@@ -632,30 +626,30 @@ final class DialogViewModel: ObservableObject {
                         }
                     }
                     
-                                    if shouldAddCharacterName {
-                    let speakerName = escapeXMLText(speaker.displayName(customNames: customSpeakerNames))
-                    var characterName = speakerName
-                    
-                                    if shouldShowContd {
-                    characterName = "\(speakerName) (CONT'D)"
-                } else if let extensionString = element.type.characterExtension {
-                    characterName = "\(speakerName) \(extensionString)"
+                    if shouldAddCharacterName {
+                        let speakerName = escapeXMLText(speaker.displayName(customNames: customSpeakerNames))
+                        var characterName = speakerName
+                        
+                        if shouldShowContd {
+                            characterName = "\(speakerName) (CONT'D)"
+                        } else if let extensionString = element.type.characterExtension {
+                            characterName = "\(speakerName) \(extensionString)"
+                        }
+                        
+                        fdxElements.append("""
+                        <Paragraph Type="Character">
+                        <Text>\(characterName)</Text>
+                        </Paragraph>
+                        """)
+                        currentSpeaker = speaker
+                    }
                 }
                 
                 fdxElements.append("""
-                <Paragraph Type="Character">
-                <Text>\(characterName)</Text>
+                <Paragraph Type="Dialogue">
+                <Text>\(escapedContent)</Text>
                 </Paragraph>
                 """)
-                currentSpeaker = speaker
-            }
-        }
-        
-        fdxElements.append("""
-        <Paragraph Type="Dialogue">
-        <Text>\(escapedContent)</Text>
-        </Paragraph>
-        """)
                 
             case .parenthetical:
                 // Add character name if speaker changed
@@ -672,31 +666,31 @@ final class DialogViewModel: ObservableObject {
                         }
                     }
                     
-                                    if shouldAddCharacterName {
-                    let speakerName = escapeXMLText(speaker.displayName(customNames: customSpeakerNames))
-                    var characterName = speakerName
-                    
-                                    if shouldShowContd {
-                    characterName = "\(speakerName) (CONT'D)"
-                } else if let extensionString = element.type.characterExtension {
-                    characterName = "\(speakerName) \(extensionString)"
+                    if shouldAddCharacterName {
+                        let speakerName = escapeXMLText(speaker.displayName(customNames: customSpeakerNames))
+                        var characterName = speakerName
+                        
+                        if shouldShowContd {
+                            characterName = "\(speakerName) (CONT'D)"
+                        } else if let extensionString = element.type.characterExtension {
+                            characterName = "\(speakerName) \(extensionString)"
+                        }
+                        
+                        fdxElements.append("""
+                        <Paragraph Type="Character">
+                        <Text>\(characterName)</Text>
+                        </Paragraph>
+                        """)
+                        currentSpeaker = speaker
+                    }
                 }
                 
+                // Wrap parenthetical content in parentheses
                 fdxElements.append("""
-                <Paragraph Type="Character">
-                <Text>\(characterName)</Text>
+                <Paragraph Type="Parenthetical">
+                <Text>(\(escapedContent))</Text>
                 </Paragraph>
                 """)
-                currentSpeaker = speaker
-            }
-        }
-        
-        // Wrap parenthetical content in parentheses
-        fdxElements.append("""
-        <Paragraph Type="Parenthetical">
-        <Text>(\(escapedContent))</Text>
-        </Paragraph>
-        """)
                 
             case .action:
                 // Remember the last speaker before this action
@@ -900,21 +894,15 @@ final class DialogViewModel: ObservableObject {
             content: newContent,
             speaker: newSpeaker
         )
-        
-
     }
     
     func undoAddScreenplayElement(_ element: ScreenplayElement) {
         screenplayElements.removeAll { $0.id == element.id }
         flaggedTextIds.remove(element.id)
-        
-
     }
     
     func redoAddScreenplayElement(_ element: ScreenplayElement) {
         screenplayElements.append(element)
-        
-
     }
     
     func undoDeleteScreenplayElement(_ element: ScreenplayElement, at originalIndex: Int) {
@@ -988,8 +976,7 @@ final class DialogViewModel: ObservableObject {
             content: newText,
             speaker: newSpeaker
         )
-        
-
+        updateGroupedElements()
         
         print("✅ Successfully edited individual element \(elementId): '\(newText)' by \(newSpeaker)")
         setNextSpeakerBasedOnLastText()
@@ -1019,6 +1006,7 @@ final class DialogViewModel: ObservableObject {
             content: originalElement.content,
             speaker: newType.requiresSpeaker ? originalElement.speaker : nil
         )
+        updateGroupedElements()
         
         print("✅ Successfully changed element type for \(elementId) from \(originalElement.type) to \(newType)")
         
@@ -1073,5 +1061,61 @@ final class DialogViewModel: ObservableObject {
         }
         
         print("🎭 startAddingParentheticalInEditMode: Final setup - selectedSpeaker: \(selectedSpeaker.rawValue), selectedElementType: \(selectedElementType), insertionPosition: \(insertionPosition?.description ?? "nil")")
+    }
+    
+    private func updateGroupedElements() {
+        groupedElements = calculateGroupedElements()
+    }
+    
+    private func calculateGroupedElements() -> [GroupedElement] {
+        var groupedElements: [GroupedElement] = []
+        var i = 0
+        
+        while i < screenplayElements.count {
+            let element = screenplayElements[i]
+            
+            // Check if this element should start a new group (speaker with potential parenthetical)
+            if element.type.requiresSpeaker && element.speaker != nil {
+                let speaker = element.speaker!
+                var elementsInGroup: [ScreenplayElement] = []
+                
+                // Add current element
+                elementsInGroup.append(element)
+                
+                // Look ahead for consecutive elements from the same speaker
+                var j = i + 1
+                while j < screenplayElements.count {
+                    let nextElement = screenplayElements[j]
+                    // Group together if same speaker and requires speaker
+                    if nextElement.speaker == speaker && nextElement.type.requiresSpeaker {
+                        elementsInGroup.append(nextElement)
+                        j += 1
+                    } else {
+                        break
+                    }
+                }
+                
+                // Create grouped element
+                let groupedElement = GroupedElement(
+                    id: element.id,
+                    speaker: speaker,
+                    elements: elementsInGroup
+                )
+                groupedElements.append(groupedElement)
+                
+                i = j
+            } else {
+                // For actions or other standalone elements, create single-element groups
+                let groupedElement = GroupedElement(
+                    id: element.id,
+                    speaker: nil,
+                    elements: [element]
+                )
+                groupedElements.append(groupedElement)
+                i += 1
+            }
+        }
+        
+        return groupedElements
     }
 } 

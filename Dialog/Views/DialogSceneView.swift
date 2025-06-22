@@ -1,33 +1,7 @@
 import SwiftUI
 import UIKit
 
-// Extension to help find the current text field for cursor positioning
-extension UIResponder {
-    static var currentFirstResponder: UIResponder? {
-        var first: UIResponder?
-        
-        func findFirstResponder(in view: UIView) {
-            for subview in view.subviews {
-                if subview.isFirstResponder {
-                    first = subview
-                    return
-                }
-                findFirstResponder(in: subview)
-            }
-        }
-        
-        for window in UIApplication.shared.connectedScenes
-            .compactMap({ $0 as? UIWindowScene })
-            .flatMap({ $0.windows }) {
-            findFirstResponder(in: window)
-            if first != nil {
-                break
-            }
-        }
-        
-        return first
-    }
-}
+// Note: Removed expensive UIResponder extension for better performance
 
 // MARK: - Grouped Element Model
 struct GroupedElement: Identifiable {
@@ -72,11 +46,9 @@ struct GroupedElementRowView: View {
         .cornerRadius(8)
         .contentShape(Rectangle())
         .onTapGesture {
-            print("🛠️ GROUP ROW TAP: Group \(groupedElement.id) tapped - no action")
             // Regular tap does nothing - user must long press to edit
         }
         .onLongPressGesture(minimumDuration: 0.5) {
-            print("🛠️ GROUP ROW LONG PRESS: Group \(groupedElement.id) long pressed")
             // Long press starts editing the group content
             viewModel.startEditingGroup(groupedElement)
         }
@@ -264,25 +236,16 @@ struct DialogSceneView: View {
                     
                     Divider()
                     
-                    ShareLink(
-                        item: viewModel.exportToFDXURL(),
-                        preview: SharePreview("Dialog.fdx", image: Image(systemName: "doc.text"))
-                    ) {
-                        Label("Export to Final Draft".localized, systemImage: "doc.text")
+                    Button("Export to Final Draft".localized) {
+                        exportDocument(type: .fdx)
                     }
                     
-                    ShareLink(
-                        item: viewModel.exportToRTFURL(),
-                        preview: SharePreview("Dialog.rtf", image: Image(systemName: "doc.richtext"))
-                    ) {
-                        Label("Export as RTF".localized, systemImage: "doc.richtext")
+                    Button("Export as RTF".localized) {
+                        exportDocument(type: .rtf)
                     }
                     
-                    ShareLink(
-                        item: viewModel.exportToTextURL(),
-                        preview: SharePreview("Dialog.txt", image: Image(systemName: "doc.plaintext"))
-                    ) {
-                        Label("Export as Text".localized, systemImage: "doc.plaintext")
+                    Button("Export as Text".localized) {
+                        exportDocument(type: .text)
                     }
                 } label: {
                     Group {
@@ -378,13 +341,10 @@ struct DialogSceneView: View {
                     .listRowSeparator(.hidden)
                     .contentShape(Rectangle())
                     .onTapGesture {
-                        print("🛠️ BACKGROUND SPACER TAP: isEditingElementType=\(viewModel.isEditingElementType)")
                         // Handle background taps for mode transitions
                         if viewModel.isEditingElementType {
-                            print("🛠️ BACKGROUND SPACER: Calling exitEditMode()")
                             viewModel.exitEditMode()
                         } else {
-                            print("🛠️ BACKGROUND SPACER: Calling handleViewTap()")
                             viewModel.handleViewTap()
                         }
                     }
@@ -425,20 +385,17 @@ struct DialogSceneView: View {
         .listRowSeparator(.hidden)
         .contentShape(Rectangle())
         .onTapGesture {
-            print("🛠️ EMPTY STATE TAP: isEditingElementType=\(viewModel.isEditingElementType)")
             // If editing element type, exit the edit mode
             if viewModel.isEditingElementType {
-                print("🛠️ EMPTY STATE: Calling exitEditMode()")
                 viewModel.exitEditMode()
             } else {
-                print("🛠️ EMPTY STATE: Calling handleViewTap()")
                 viewModel.handleViewTap()
             }
         }
     }
 
     private var screenplayElementsForEach: some View {
-        ForEach(Array(getGroupedElements().enumerated()), id: \.element.id) { index, groupedElement in
+        ForEach(Array(viewModel.groupedElements.enumerated()), id: \.element.id) { index, groupedElement in
             GroupedElementRowView(
                 groupedElement: groupedElement,
                 customSpeakerNames: viewModel.customSpeakerNames,
@@ -489,60 +446,43 @@ struct DialogSceneView: View {
 
     
     // MARK: - Helper Methods
-    private func getGroupedElements() -> [GroupedElement] {
-        var groupedElements: [GroupedElement] = []
-        var i = 0
+    
+    private enum DocumentType {
+        case fdx, rtf, text
+    }
+    
+    private func exportDocument(type: DocumentType) {
+        let url: URL
         
-        while i < viewModel.screenplayElements.count {
-            let element = viewModel.screenplayElements[i]
-            
-            // Check if this element should start a new group (speaker with potential parenthetical)
-            if element.type.requiresSpeaker && element.speaker != nil {
-                let speaker = element.speaker!
-                var elementsInGroup: [ScreenplayElement] = []
-                
-                // Add current element
-                elementsInGroup.append(element)
-                
-                // Look ahead for consecutive elements from the same speaker
-                var j = i + 1
-                while j < viewModel.screenplayElements.count {
-                    let nextElement = viewModel.screenplayElements[j]
-                    // Group together if same speaker and requires speaker
-                    if nextElement.speaker == speaker && nextElement.type.requiresSpeaker {
-                        elementsInGroup.append(nextElement)
-                        j += 1
-                    } else {
-                        break
-                    }
-                }
-                
-                // Create grouped element
-                let groupedElement = GroupedElement(
-                    id: element.id,
-                    speaker: speaker,
-                    elements: elementsInGroup
-                )
-                groupedElements.append(groupedElement)
-                
-                i = j
-            } else {
-                // For actions or other standalone elements, create single-element groups
-                let groupedElement = GroupedElement(
-                    id: element.id,
-                    speaker: nil,
-                    elements: [element]
-                )
-                groupedElements.append(groupedElement)
-                i += 1
-            }
+        switch type {
+        case .fdx:
+            url = viewModel.exportToFDXURL()
+        case .rtf:
+            url = viewModel.exportToRTFURL()
+        case .text:
+            url = viewModel.exportToTextURL()
         }
         
-        return groupedElements
+        // Present the share sheet
+        let activityViewController = UIActivityViewController(activityItems: [url], applicationActivities: nil)
+        
+        if let windowScene = UIApplication.shared.connectedScenes.first as? UIWindowScene,
+           let window = windowScene.windows.first,
+           let rootViewController = window.rootViewController {
+            
+            // For iPad, set the popover presentation controller
+            if let popover = activityViewController.popoverPresentationController {
+                popover.sourceView = window
+                popover.sourceRect = CGRect(x: window.bounds.midX, y: window.bounds.midY, width: 0, height: 0)
+                popover.permittedArrowDirections = []
+            }
+            
+            rootViewController.present(activityViewController, animated: true)
+        }
     }
     
     private func shouldShowSpeakerName(for index: Int) -> Bool {
-        let groupedElements = getGroupedElements()
+        let groupedElements = viewModel.groupedElements
         guard index < groupedElements.count else { 
             return true 
         }
@@ -564,7 +504,7 @@ struct DialogSceneView: View {
     /// According to screenplay formatting, CONT'D is added when a character speaks again
     /// after an action line has interrupted their dialogue
     private func shouldShowContd(for index: Int) -> Bool {
-        let groupedElements = getGroupedElements()
+        let groupedElements = viewModel.groupedElements
         guard index > 0 && index < groupedElements.count else { return false }
         
         let currentGroup = groupedElements[index]
