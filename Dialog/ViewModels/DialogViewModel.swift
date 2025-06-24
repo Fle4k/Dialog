@@ -190,6 +190,40 @@ final class DialogViewModel: ObservableObject {
         }
     }
     
+    func immediatelyApplyCharacterExtension(_ elementType: ScreenplayElementType) {
+        // This method is called when user taps on Off Screen/VO/Text extension
+        // It immediately applies the extension to the current dialog input without needing to type and enter
+        guard elementType.characterExtension != nil else { return }
+        
+        print("🎭 immediatelyApplyCharacterExtension: Applying \(elementType.displayName) immediately")
+        
+        // Set the element type for new input
+        selectedElementType = elementType
+        
+        // Show the input area so user can immediately start typing with this extension
+        showInputAreaWithFocus()
+        
+        // Add haptic feedback to indicate the extension has been applied
+        let impactFeedback = UIImpactFeedbackGenerator(style: .light)
+        impactFeedback.impactOccurred()
+        
+        print("🎭 immediatelyApplyCharacterExtension: Set selectedElementType to \(elementType), input area shown")
+    }
+    
+    func startRenamingSpeakerFromDialog(_ speaker: Speaker) {
+        // This method is called when user long presses on a speaker name in the dialog scene
+        // It should trigger the same rename functionality as the A/B buttons
+        
+        print("🎭 startRenamingSpeakerFromDialog: Starting rename for speaker \(speaker.rawValue)")
+        
+        // We need to trigger the rename alert - this will be handled by the view
+        // For now, we'll just set a published property that the view can observe
+        speakerToRenameFromDialog = speaker
+    }
+    
+    // Add published property for speaker rename from dialog
+    @Published var speakerToRenameFromDialog: Speaker? = nil
+    
     // MARK: - Business Logic Methods
     func addText() {
         let trimmedText = inputText.trimmingCharacters(in: .whitespacesAndNewlines)
@@ -344,6 +378,7 @@ final class DialogViewModel: ObservableObject {
         isEditingElementType = false
         editingGroupId = nil
         editingOriginalSpeaker = nil
+        editingGroupedElement = nil
         insertionPosition = nil
         print("🛠️ exitEditMode: COMPLETED - after: isEditingText=\(isEditingText), editingGroupId=\(editingGroupId?.uuidString ?? "nil")")
     }
@@ -1190,4 +1225,35 @@ final class DialogViewModel: ObservableObject {
         
         return groupedElements
     }
+    
+    func startEditingElementWithFullOptions(_ element: ScreenplayElement, groupedElement: GroupedElement) {
+        // This method provides comprehensive editing options for an element
+        // Including edit, remove, and +actions with logic for parentheticals
+        
+        print("🛠️ startEditingElementWithFullOptions: Starting full edit for element \(element.id)")
+        
+        isEditingText = true
+        isEditingElementType = true
+        editingGroupId = element.id
+        editingOriginalSpeaker = element.speaker
+        
+        // Store reference to the grouped element for +action logic
+        editingGroupedElement = groupedElement
+        
+        // Set up editing state
+        inputText = element.content
+        selectedSpeaker = element.speaker ?? .a
+        selectedElementType = element.type
+        
+        if isFullscreenMode {
+            exitFullscreenMode()
+        } else {
+            showInputAreaWithFocus()
+        }
+        
+        print("🛠️ startEditingElementWithFullOptions: Full edit mode enabled")
+    }
+    
+    // Add property to track the grouped element being edited
+    @Published var editingGroupedElement: GroupedElement? = nil
 } 

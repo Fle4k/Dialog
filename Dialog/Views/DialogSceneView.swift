@@ -171,6 +171,9 @@ struct DialogSceneView: View {
     @State private var showingTitleRenameAlert = false
     @State private var newTitle = ""
     
+    // Speaker rename from dialog state
+    @State private var newSpeakerName = ""
+    
     // Undo state
     @State private var showingUndoToast = false
     
@@ -294,6 +297,23 @@ struct DialogSceneView: View {
         } message: {
             Text("Enter a new name for this dialog".localized)
         }
+        .alert("Rename Speaker".localized, isPresented: .constant(viewModel.speakerToRenameFromDialog != nil)) {
+            TextField("Speaker name".localized, text: Binding(
+                get: { viewModel.customSpeakerNames[viewModel.speakerToRenameFromDialog ?? .a] ?? "" },
+                set: { newSpeakerName = $0 }
+            ))
+            Button("Cancel".localized, role: .cancel) { 
+                viewModel.speakerToRenameFromDialog = nil
+            }
+            Button("Save".localized) {
+                if let speaker = viewModel.speakerToRenameFromDialog {
+                    viewModel.renameSpeaker(speaker, to: newSpeakerName)
+                }
+                viewModel.speakerToRenameFromDialog = nil
+            }
+        } message: {
+            Text("Enter a custom name for this speaker".localized)
+        }
         .statusBarHidden(viewModel.isFullscreenMode)
         .onAppear {
             if let session = existingSession {
@@ -341,9 +361,10 @@ struct DialogSceneView: View {
                     .listRowSeparator(.hidden)
                     .contentShape(Rectangle())
                     .onTapGesture {
-                        // Handle background taps for mode transitions
-                        if viewModel.isEditingElementType {
-                            viewModel.exitEditMode()
+                        // If editing element type or text, exit the edit mode
+                        if viewModel.isEditingElementType || viewModel.isEditingText {
+                            // Cancel edit mode when tapping above input field (replaces cancel button)
+                            viewModel.cancelEditMode()
                         } else {
                             viewModel.handleViewTap()
                         }
@@ -573,13 +594,7 @@ struct DialogSceneView: View {
                     selectedElementType: viewModel.selectedElementType
                 )
                 
-                if viewModel.isEditingText {
-                    Button("Cancel".localized) {
-                        cancelEditMode()
-                    }
-                    .foregroundColor(.secondary)
-                    .padding(.leading, 8)
-                }
+                // Cancel button removed - tapping above input field will be the cancel behavior
             }
             .padding(.horizontal)
             .padding(.top, 2) // Reduced from 6 to 2 to match tight dialogue scene spacing
@@ -601,13 +616,6 @@ struct DialogSceneView: View {
     
     // MARK: - Helper Methods
 
-    
-
-    
-    private func cancelEditMode() {
-        viewModel.cancelEditMode()
-    }
-    
     private func handleShakeGesture() {
         guard viewModel.canUndo() || viewModel.canRedo() else { return }
         
@@ -633,7 +641,11 @@ struct IndividualElementView: View {
     }
     
     private var isEditingCharacterExtension: Bool {
-        viewModel.isEditingElementType && viewModel.editingGroupId == groupedElement.id
+        viewModel.isEditingElementType && viewModel.editingGroupId == groupedElement.id && element.type.characterExtension != nil
+    }
+    
+    private var isRenamingSpeaker: Bool {
+        viewModel.speakerToRenameFromDialog != nil && viewModel.speakerToRenameFromDialog == element.speaker
     }
     
     var body: some View {
@@ -644,36 +656,44 @@ struct IndividualElementView: View {
                     Text(speaker.displayName(customNames: customSpeakerNames))
                         .font(.headline)
                         .fontWeight(.black)
-                        // No blur on speaker name - it stays clear
+                        // Only blur speaker name when being renamed
+                        .blur(radius: isRenamingSpeaker ? 2 : 0)
+                        .animation(.easeInOut(duration: 0.3), value: isRenamingSpeaker)
+                        .onLongPressGesture(minimumDuration: 0.5) {
+                            // Long press on speaker name in dialog scene allows renaming
+                            startRenamingSpeaker(speaker)
+                        }
                     if shouldShowContd {
                         Text("(CONT'D)")
                             .font(.headline)
                             .fontWeight(.light)
                             .italic()
                             .foregroundColor(.secondary)
-                            // No blur on (CONT'D) - it stays clear
+                            // Never blur (CONT'D)
                     } else if let extensionString = element.type.characterExtension {
                         Text(extensionString)
                             .font(.headline)
                             .fontWeight(.light)
                             .italic()
                             .foregroundColor(.secondary)
+                            // Only blur character extension when being edited (not when speaker is being renamed)
                             .blur(radius: isEditingCharacterExtension ? 2 : 0)
                             .animation(.easeInOut(duration: 0.3), value: isEditingCharacterExtension)
                             .simultaneousGesture(
                                 TapGesture()
                                     .onEnded { _ in
                                         print("🛠️ CHARACTER EXTENSION TAP: element \(element.id)")
-                                        // Quick edit element type by tapping on the extension
-                                        startEditingElementType()
+                                        // Immediately apply the character extension when tapped on Off Screen/VO text
+                                        // Apply this extension to the current dialog input immediately
+                                        viewModel.immediatelyApplyCharacterExtension(element.type)
                                     }
                             )
                             .simultaneousGesture(
                                 LongPressGesture(minimumDuration: 0.5)
                                     .onEnded { _ in
                                         print("🛠️ CHARACTER EXTENSION LONG PRESS: element \(element.id)")
-                                        // Long press on character extension also activates element type editing
-                                        startEditingElementType()
+                                        // Long press on character extension shows options to remove or replace
+                                        startEditingCharacterExtension()
                                     }
                             )
                     }
@@ -688,6 +708,7 @@ struct IndividualElementView: View {
                         .foregroundColor(isAnyElementFlagged ? Color(.systemBackground).opacity(0.8) : .secondary)
                         .italic()
                         .multilineTextAlignment(textAlignment)
+                        // Only blur content when editing the content itself
                         .blur(radius: isEditingElementContent ? 2 : 0)
                         .animation(.easeInOut(duration: 0.3), value: isEditingElementContent)
                         .contentShape(Rectangle())
@@ -696,8 +717,8 @@ struct IndividualElementView: View {
                             viewModel.handleViewTap()
                         }
                         .onLongPressGesture(minimumDuration: 0.5) {
-                            // Long press edits the individual element
-                            editIndividualElement()
+                            // Long press shows comprehensive editing options
+                            showElementEditingOptions()
                         }
                 } else {
                     Text(element.content)
@@ -705,6 +726,7 @@ struct IndividualElementView: View {
                         .fontWeight(.light)
                         .multilineTextAlignment(textAlignment)
                         .frame(maxWidth: .infinity, alignment: frameAlignment)
+                        // Only blur content when editing the content itself
                         .blur(radius: isEditingElementContent ? 2 : 0)
                         .animation(.easeInOut(duration: 0.3), value: isEditingElementContent)
                         .contentShape(Rectangle())
@@ -713,8 +735,8 @@ struct IndividualElementView: View {
                             viewModel.handleViewTap()
                         }
                         .onLongPressGesture(minimumDuration: 0.5) {
-                            // Long press edits the individual element
-                            editIndividualElement()
+                            // Long press shows comprehensive editing options
+                            showElementEditingOptions()
                         }
                 }
             }
@@ -725,25 +747,32 @@ struct IndividualElementView: View {
         return alignment
     }
     
-    private func startEditingElementType() {
+    private func startRenamingSpeaker(_ speaker: Speaker) {
         // Add haptic feedback
         let impactFeedback = UIImpactFeedbackGenerator(style: .light)
         impactFeedback.impactOccurred()
         
-        // Start editing the element type using the existing element type selector
-        viewModel.startEditingElementType(element)
+        // Trigger speaker rename from dialog scene
+        viewModel.startRenamingSpeakerFromDialog(speaker)
     }
     
-    private func editIndividualElement() {
-        print("🛠️ editIndividualElement: TAP detected on element \(element.id) with content '\(element.content)'")
-        
-        // Add haptic feedback for content editing
+    private func startEditingCharacterExtension() {
+        // Add haptic feedback
         let impactFeedback = UIImpactFeedbackGenerator(style: .light)
         impactFeedback.impactOccurred()
         
-        // Start editing just this individual element, not the whole group
-        print("🛠️ editIndividualElement: Calling viewModel.startEditingElement")
-        viewModel.startEditingElement(element)
+        // Start editing the character extension with remove/replace options
+        viewModel.startEditingElementType(element)
+    }
+    
+    private func showElementEditingOptions() {
+        // Add haptic feedback
+        let impactFeedback = UIImpactFeedbackGenerator(style: .light)
+        impactFeedback.impactOccurred()
+        
+        // Show comprehensive editing options for this element
+        // This will include edit, remove, and +actions with logic for parentheticals
+        viewModel.startEditingElementWithFullOptions(element, groupedElement: groupedElement)
     }
     
     private var textAlignment: TextAlignment {
@@ -1182,15 +1211,14 @@ struct ElementTypeSelectorView: View {
                     // For actions, only show Remove option
                     return [.dialogue]  // dialogue will be shown as "Remove"
                 } else if editingElement.type == .parenthetical {
-                    // For parentheticals, show Remove option and character extensions (but not Action)
-                    return [.dialogue, .offScreen, .voiceOver, .text]  // dialogue will be shown as "Remove"
+                    // For parentheticals, show only Remove option (no character extensions)
+                    return [.dialogue]  // dialogue will be shown as "Remove Parenthetical"
                 } else {
-                    // For dialogue, show character extension types and parenthetical (no Remove option)
+                    // For dialogue with extensions, show character extension types (no +Action when editing lines)
                     return [.parenthetical, .offScreen, .voiceOver, .text]
                 }
             } else {
-                // Fallback: if we can't find the editing element, show all options except action for parentheticals
-                // This is a safety fallback that shouldn't normally be reached
+                // Fallback
                 return [.dialogue, .parenthetical, .offScreen, .voiceOver, .text]
             }
         } else {
@@ -1290,6 +1318,7 @@ struct ElementTypeSelectorView: View {
                     return "Remove"
                 }
             } else {
+                // For all other types in edit mode, show + prefix (no Action when editing lines)
                 return "+ \(elementType.displayName)"
             }
         } else {
