@@ -211,7 +211,9 @@ struct DialogSceneView: View {
             isPresented: $showingUndoToast,
             actionDescription: viewModel.getLastActionDescription(),
             onUndo: {
-                if viewModel.canRedo() {
+                // Check what the action description says to determine whether to undo or redo
+                let actionDescription = viewModel.getLastActionDescription()
+                if actionDescription == "Redo" {
                     viewModel.performRedo()
                 } else {
                     viewModel.performUndo()
@@ -338,13 +340,22 @@ struct DialogSceneView: View {
         ScrollViewReader { proxy in
             screenplayElementsList
                 .onChange(of: viewModel.screenplayElements.count) { _, _ in
-                    scrollCoordinator.handleElementCountChange(proxy: proxy, viewModel: viewModel)
+                    // Only auto-scroll when not in edit mode to prevent scrolling away from edited content
+                    if !viewModel.isEditingText && !viewModel.isEditingElementType {
+                        scrollCoordinator.handleElementCountChange(proxy: proxy, viewModel: viewModel)
+                    }
                 }
                 .onChange(of: viewModel.showInputArea) { _, newValue in
-                    scrollCoordinator.handleInputAreaChange(proxy: proxy, viewModel: viewModel, showInputArea: newValue)
+                    // Only auto-scroll when not in edit mode
+                    if !viewModel.isEditingText && !viewModel.isEditingElementType {
+                        scrollCoordinator.handleInputAreaChange(proxy: proxy, viewModel: viewModel, showInputArea: newValue)
+                    }
                 }
                 .onChange(of: isInputFocused) { _, focused in
-                    scrollCoordinator.handleFocusChange(proxy: proxy, viewModel: viewModel, focused: focused)
+                    // Only auto-scroll when not in edit mode
+                    if !viewModel.isEditingText && !viewModel.isEditingElementType {
+                        scrollCoordinator.handleFocusChange(proxy: proxy, viewModel: viewModel, focused: focused)
+                    }
                 }
         }
     }
@@ -641,7 +652,10 @@ struct IndividualElementView: View {
     }
     
     private var isEditingCharacterExtension: Bool {
-        viewModel.isEditingElementType && viewModel.editingGroupId == groupedElement.id && element.type.characterExtension != nil
+        // Only blur character extensions when editing element type AND this specific element AND it has a character extension
+        viewModel.isEditingElementType && 
+        viewModel.editingGroupId == element.id && 
+        element.type.characterExtension != nil
     }
     
     private var isRenamingSpeaker: Bool {
@@ -676,7 +690,7 @@ struct IndividualElementView: View {
                             .fontWeight(.light)
                             .italic()
                             .foregroundColor(.secondary)
-                            // Only blur character extension when being edited (not when speaker is being renamed)
+                            // Only blur character extension when this specific element is being edited
                             .blur(radius: isEditingCharacterExtension ? 2 : 0)
                             .animation(.easeInOut(duration: 0.3), value: isEditingCharacterExtension)
                             .simultaneousGesture(
@@ -1155,6 +1169,9 @@ struct TextInputView: View {
             .padding(.horizontal, 8)
             .padding(.vertical, 12)
             .frame(minHeight: 44)
+            // Disable keyboard suggestions and autocorrection as requested
+            .keyboardType(.asciiCapable)
+            .autocorrectionDisabled(true)
             .onChange(of: selectedElementType) { _, newType in
                 // Clear text when switching element types to avoid confusion
                 if !text.isEmpty && newType != selectedElementType {
@@ -1213,8 +1230,21 @@ struct ElementTypeSelectorView: View {
                 } else if editingElement.type == .parenthetical {
                     // For parentheticals, show only Remove option (no character extensions)
                     return [.dialogue]  // dialogue will be shown as "Remove Parenthetical"
+                } else if editingElement.type.characterExtension != nil {
+                    // For character extensions (O.S., V.O., Text), show Remove and other character extensions
+                    var options: [ScreenplayElementType] = [.dialogue] // Remove option first
+                    
+                    // Add other character extension options (excluding the current one)
+                    let allCharacterExtensions: [ScreenplayElementType] = [.offScreen, .voiceOver, .text]
+                    for extensionType in allCharacterExtensions {
+                        if extensionType != editingElement.type {
+                            options.append(extensionType)
+                        }
+                    }
+                    
+                    return options
                 } else {
-                    // For dialogue with extensions, show character extension types (no +Action when editing lines)
+                    // For plain dialogue, show character extension types (no +Action when editing lines)
                     return [.parenthetical, .offScreen, .voiceOver, .text]
                 }
             } else {
@@ -1311,14 +1341,23 @@ struct ElementTypeSelectorView: View {
                         return "Remove Parenthetical"
                     case .action:
                         return "Remove Action"
+                    case .offScreen:
+                        return "Remove O.S."
+                    case .voiceOver:
+                        return "Remove V.O."
+                    case .text:
+                        return "Remove Text"
                     default:
                         return "Remove"
                     }
                 } else {
                     return "Remove"
                 }
+            } else if editingElement?.type.characterExtension != nil {
+                // When editing character extensions, show plain names for replacement options
+                return elementType.displayName
             } else {
-                // For all other types in edit mode, show + prefix (no Action when editing lines)
+                // For regular dialogue editing, show + prefix for adding extensions
                 return "+ \(elementType.displayName)"
             }
         } else {
@@ -1352,6 +1391,11 @@ struct ElementTypeSelectorView: View {
         } else {
             return .primary
         }
+    }
+    
+    private var editingElement: ScreenplayElement? {
+        guard let editingGroupId = viewModel.editingGroupId else { return nil }
+        return viewModel.screenplayElements.first(where: { $0.id == editingGroupId })
     }
     
     private func isEditingParenthetical() -> Bool {

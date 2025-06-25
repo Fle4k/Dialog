@@ -13,6 +13,7 @@ enum UndoAction {
     case addScreenplayElement(ScreenplayElement) // element that was added
     case deleteScreenplayElement(ScreenplayElement, Int) // element and its original index
     case editScreenplayElement(id: UUID, oldContent: String, newContent: String, oldSpeaker: Speaker?, newSpeaker: Speaker?)
+    case changeElementType(id: UUID, oldType: ScreenplayElementType, newType: ScreenplayElementType) // Add proper element type change tracking
 }
 
 // MARK: - Undo Manager
@@ -20,23 +21,27 @@ enum UndoAction {
 class AppUndoManager: ObservableObject {
     static let shared = AppUndoManager()
     
-    @Published private var undoAction: UndoAction? = nil
-    @Published private var redoAction: UndoAction? = nil
+    // Changed to store stacks of actions instead of just one
+    @Published private var undoStack: [UndoAction] = []
+    @Published private var redoStack: [UndoAction] = []
+    
+    // Maximum number of undo actions to keep in memory
+    private let maxUndoStackSize = 50
     
     private init() {}
     
     var canUndo: Bool {
-        undoAction != nil
+        !undoStack.isEmpty
     }
     
     var canRedo: Bool {
-        redoAction != nil
+        !redoStack.isEmpty
     }
     
     var lastActionDescription: String {
         if canRedo {
             return "Redo".localized
-        } else if let action = undoAction {
+        } else if let action = undoStack.last {
             switch action {
             case .addText(_):
                 return "Add Text".localized
@@ -58,6 +63,8 @@ class AppUndoManager: ObservableObject {
                 return "Delete Element".localized
             case .editScreenplayElement(_, _, _, _, _):
                 return "Edit Element".localized
+            case .changeElementType(_, _, _):
+                return "Change Type".localized
             }
         } else {
             return ""
@@ -65,20 +72,27 @@ class AppUndoManager: ObservableObject {
     }
     
     func recordAction(_ action: UndoAction) {
-        // Store only the most recent action for undo
-        undoAction = action
-        // Clear any existing redo when a new action is recorded
-        redoAction = nil
+        // Add action to undo stack
+        undoStack.append(action)
+        
+        // Limit stack size to prevent memory issues
+        if undoStack.count > maxUndoStackSize {
+            undoStack.removeFirst()
+        }
+        
+        // Clear redo stack when a new action is recorded
+        redoStack.removeAll()
         
         objectWillChange.send()
+        print("🔄 UndoManager: Recorded action, undo stack size: \(undoStack.count)")
     }
     
     func performUndo(dialogViewModel: DialogViewModel? = nil, mainMenuViewModel: MainMenuViewModel? = nil) {
-        guard let action = undoAction else { return }
+        guard let action = undoStack.last else { return }
         
         // Move undo action to redo
-        redoAction = action
-        undoAction = nil
+        redoStack.append(action)
+        undoStack.removeLast()
         
         switch action {
         case .addText(let speakerText):
@@ -110,17 +124,20 @@ class AppUndoManager: ObservableObject {
             
         case .editScreenplayElement(let id, let oldContent, _, let oldSpeaker, _):
             dialogViewModel?.undoEditScreenplayElement(id: id, oldContent: oldContent, oldSpeaker: oldSpeaker)
+            
+        case .changeElementType(let id, let oldType, let newType):
+            dialogViewModel?.undoChangeElementType(id: id, oldType: oldType, newType: newType)
         }
         
         objectWillChange.send()
     }
     
     func performRedo(dialogViewModel: DialogViewModel? = nil, mainMenuViewModel: MainMenuViewModel? = nil) {
-        guard let action = redoAction else { return }
+        guard let action = redoStack.last else { return }
         
         // Move redo action back to undo
-        undoAction = action
-        redoAction = nil
+        undoStack.append(action)
+        redoStack.removeLast()
         
         // Redo means performing the original action again
         switch action {
@@ -163,14 +180,17 @@ class AppUndoManager: ObservableObject {
         case .editScreenplayElement(let id, _, let newContent, _, let newSpeaker):
             // Redo edit: apply the new content/speaker again
             dialogViewModel?.redoEditScreenplayElement(id: id, newContent: newContent, newSpeaker: newSpeaker)
+            
+        case .changeElementType(let id, let oldType, let newType):
+            dialogViewModel?.redoChangeElementType(id: id, oldType: oldType, newType: newType)
         }
         
         objectWillChange.send()
     }
     
     func clearUndoStack() {
-        undoAction = nil
-        redoAction = nil
+        undoStack.removeAll()
+        redoStack.removeAll()
         objectWillChange.send()
     }
 } 

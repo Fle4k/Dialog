@@ -192,22 +192,44 @@ final class DialogViewModel: ObservableObject {
     
     func immediatelyApplyCharacterExtension(_ elementType: ScreenplayElementType) {
         // This method is called when user taps on Off Screen/VO/Text extension
-        // It immediately applies the extension to the current dialog input without needing to type and enter
+        // It immediately creates a visible element in the dialog scene with the speaker name + extension
+        // Then prepares the input for the user to type the content
         guard elementType.characterExtension != nil else { return }
         
         print("🎭 immediatelyApplyCharacterExtension: Applying \(elementType.displayName) immediately")
         
-        // Set the element type for new input
-        selectedElementType = elementType
+        // Create a placeholder element with just the speaker and extension visible
+        // The user will then type the content for this extension
+        let speaker = selectedSpeaker
+        let placeholderElement = ScreenplayElement(
+            type: elementType,
+            content: "", // Empty content - user will fill this in
+            speaker: speaker
+        )
         
-        // Show the input area so user can immediately start typing with this extension
+        // Record undo action
+        undoManager.recordAction(.addScreenplayElement(placeholderElement))
+        
+        // Add the placeholder element to show speaker + extension immediately
+        screenplayElements.append(placeholderElement)
+        updateGroupedElements()
+        
+        // Set up for editing this placeholder element
+        isEditingText = true
+        editingGroupId = placeholderElement.id
+        editingOriginalSpeaker = speaker
+        inputText = "" // Start with empty input
+        selectedElementType = elementType
+        selectedSpeaker = speaker
+        
+        // Show the input area so user can immediately start typing the extension content
         showInputAreaWithFocus()
         
         // Add haptic feedback to indicate the extension has been applied
         let impactFeedback = UIImpactFeedbackGenerator(style: .light)
         impactFeedback.impactOccurred()
         
-        print("🎭 immediatelyApplyCharacterExtension: Set selectedElementType to \(elementType), input area shown")
+        print("🎭 immediatelyApplyCharacterExtension: Created visible element with speaker \(speaker) and extension \(elementType.characterExtension ?? ""), now editing")
     }
     
     func startRenamingSpeakerFromDialog(_ speaker: Speaker) {
@@ -301,16 +323,20 @@ final class DialogViewModel: ObservableObject {
         
         // Insert at specific position if set (for parentheticals in edit mode), otherwise append
         if let insertAtIndex = insertionPosition {
-                    screenplayElements.insert(element, at: insertAtIndex)
-        print("🎭 addScreenplayElement: Inserted element at position \(insertAtIndex)")
-        updateGroupedElements()
+            screenplayElements.insert(element, at: insertAtIndex)
+            print("🎭 addScreenplayElement: Inserted element at position \(insertAtIndex)")
+            updateGroupedElements()
             // Clear insertion position after use
             insertionPosition = nil
         } else {
-                    screenplayElements.append(element)
-        print("🎭 addScreenplayElement: Appended element to end")
-        updateGroupedElements()
+            screenplayElements.append(element)
+            print("🎭 addScreenplayElement: Appended element to end")
+            updateGroupedElements()
         }
+        
+        // Also add to legacy textlines for compatibility (and undo support)
+        let speakerText = SpeakerText(id: element.id, speaker: speaker ?? .a, text: processedContent)
+        textlines.append(speakerText)
         
         print("🟡 addScreenplayElement BEFORE handleElementTypeSpecificLogic: selectedElementType=\(selectedElementType), selectedSpeaker=\(selectedSpeaker)")
         
@@ -991,10 +1017,17 @@ final class DialogViewModel: ObservableObject {
     func undoAddScreenplayElement(_ element: ScreenplayElement) {
         screenplayElements.removeAll { $0.id == element.id }
         flaggedTextIds.remove(element.id)
+        // Also remove from textlines to keep them synchronized
+        textlines.removeAll { $0.id == element.id }
+        updateGroupedElements()
     }
     
     func redoAddScreenplayElement(_ element: ScreenplayElement) {
         screenplayElements.append(element)
+        // Also add to textlines to keep them synchronized
+        let speakerText = SpeakerText(id: element.id, speaker: element.speaker ?? .a, text: element.content)
+        textlines.append(speakerText)
+        updateGroupedElements()
     }
     
     func undoDeleteScreenplayElement(_ element: ScreenplayElement, at originalIndex: Int) {
@@ -1090,13 +1123,11 @@ final class DialogViewModel: ObservableObject {
         
         let originalElement = screenplayElements[elementIndex]
         
-        // Record undo action
-        undoManager.recordAction(.editScreenplayElement(
+        // Record undo action for element type change
+        undoManager.recordAction(.changeElementType(
             id: originalElement.id,
-            oldContent: originalElement.content,
-            newContent: originalElement.content, // Content stays the same
-            oldSpeaker: originalElement.speaker,
-            newSpeaker: originalElement.speaker // Speaker stays the same
+            oldType: originalElement.type,
+            newType: newType
         ))
         
         // Update only the element type, preserve content and speaker
@@ -1256,4 +1287,36 @@ final class DialogViewModel: ObservableObject {
     
     // Add property to track the grouped element being edited
     @Published var editingGroupedElement: GroupedElement? = nil
+    
+    func undoChangeElementType(id: UUID, oldType: ScreenplayElementType, newType: ScreenplayElementType) {
+        guard let index = screenplayElements.firstIndex(where: { $0.id == id }) else { return }
+        let element = screenplayElements[index]
+        
+        // Restore the old element type
+        screenplayElements[index] = ScreenplayElement(
+            id: element.id,
+            type: oldType,
+            content: element.content,
+            speaker: oldType.requiresSpeaker ? element.speaker : nil
+        )
+        updateGroupedElements()
+        
+        print("🔄 Undid element type change: \(newType) → \(oldType)")
+    }
+    
+    func redoChangeElementType(id: UUID, oldType: ScreenplayElementType, newType: ScreenplayElementType) {
+        guard let index = screenplayElements.firstIndex(where: { $0.id == id }) else { return }
+        let element = screenplayElements[index]
+        
+        // Apply the new element type again
+        screenplayElements[index] = ScreenplayElement(
+            id: element.id,
+            type: newType,
+            content: element.content,
+            speaker: newType.requiresSpeaker ? element.speaker : nil
+        )
+        updateGroupedElements()
+        
+        print("🔄 Redid element type change: \(oldType) → \(newType)")
+    }
 } 
