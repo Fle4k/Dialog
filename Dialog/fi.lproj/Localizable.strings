@@ -2,6 +2,7 @@
 "Settings" = "Asetukset";
 "Language" = "Kieli";
 "Done" = "Valmis";
+"Back" = "Takaisin";
 "Enter dialogue..." = "Syötä teksti...";
 "Add Dialogue" = "Uusi Dialogi";
 "Rename Speaker" = "Nimeä Hahmo Uudelleen";
@@ -47,7 +48,6 @@
 "Edit Text" = "Muokkaa tekstiä";
 "Flag Text" = "Merkitse teksti";
 "Unflag Text" = "Poista merkintä";
-"Rename Speaker" = "Nimeä hahmo uudelleen";
 "Delete Dialog" = "Poista dialogi";
 "Add Element" = "Lisää elementti";
 "Delete Element" = "Poista elementti";
@@ -64,4 +64,14 @@
 "Text" = "Teksti";
 "Enter off screen dialog..." = "Syötä ruudun ulkopuolinen dialogi...";
 "Enter voice over..." = "Syötä äänikerronta...";
-"Enter text dialog..." = "Syötä tekstidialogi..."; 
+"Enter text dialog..." = "Syötä tekstidialogi...";
+"Word Suggestions" = "Sanaehdotukset";
+"Show word suggestion bar while typing" = "Näytä sanaehdotuspalkki kirjoittaessa";
+"Remove Parenthetical" = "Poista Ohjeistus";
+"Remove Action" = "Poista Toiminta";
+"Remove O.S." = "Poista R.U.";
+"Remove V.O." = "Poista Ä.K.";
+"Remove Text" = "Poista Teksti";
+"Remove" = "Poista";
+"Predictive" = "Ennakoiva";
+"Enable predictive text suggestions while typing" = "Ota käyttöön ennakoivat tekstiehdotukset kirjoittaessa - vähemmän tilaa"; 

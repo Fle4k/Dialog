@@ -166,6 +166,7 @@ struct DialogSceneView: View {
     @FocusState private var isInputFocused: Bool
     @Environment(\.dismiss) private var dismiss
     @Environment(\.colorScheme) private var colorScheme
+    @Environment(\.presentationMode) var presentationMode
     
     // Rename alert state
     @State private var showingTitleRenameAlert = false
@@ -268,7 +269,16 @@ struct DialogSceneView: View {
         }
         .navigationTitle("")
         .navigationBarTitleDisplayMode(.inline)
+        .navigationBarBackButtonHidden(true)
         .toolbar {
+            ToolbarItem(placement: .topBarLeading) {
+                Button("Back".localized) {
+                    // Navigate back
+                    presentationMode.wrappedValue.dismiss()
+                }
+                .foregroundColor(.accentColor)
+            }
+            
             ToolbarItem(placement: .principal) {
                 Button(action: {}) {
                     Text(viewModel.currentTitle.isEmpty ? "New Dialog".localized : viewModel.currentTitle)
@@ -666,50 +676,111 @@ struct IndividualElementView: View {
         VStack(alignment: viewAlignment, spacing: 2) {
             // Show speaker name and extension for this individual element when needed
             if showSpeakerName && element.type.requiresSpeaker, let speaker = element.speaker {
-                HStack(spacing: 4) {
-                    Text(speaker.displayName(customNames: customSpeakerNames))
-                        .font(.headline)
-                        .fontWeight(.black)
-                        // Only blur speaker name when being renamed
-                        .blur(radius: isRenamingSpeaker ? 2 : 0)
-                        .animation(.easeInOut(duration: 0.3), value: isRenamingSpeaker)
-                        .onLongPressGesture(minimumDuration: 0.5) {
-                            // Long press on speaker name in dialog scene allows renaming
-                            startRenamingSpeaker(speaker)
+                VStack(spacing: 4) {
+                    if alignment == .center {
+                        // In center mode: center the speaker name, with extension flowing to the right
+                        HStack(spacing: 4) {
+                            Spacer()
+                            
+                            // Centered speaker name
+                            Text(speaker.displayName(customNames: customSpeakerNames))
+                                .font(.headline)
+                                .fontWeight(.black)
+                                // Only blur speaker name when being renamed
+                                .blur(radius: isRenamingSpeaker ? 2 : 0)
+                                .animation(.easeInOut(duration: 0.3), value: isRenamingSpeaker)
+                                .onLongPressGesture(minimumDuration: 0.5) {
+                                    // Long press on speaker name in dialog scene allows renaming
+                                    startRenamingSpeaker(speaker)
+                                }
+                            
+                            // Extension appears on the right of centered name (standard screenplay format)
+                            if shouldShowContd {
+                                Text("(CONT'D)")
+                                    .font(.headline)
+                                    .fontWeight(.light)
+                                    .italic()
+                                    .foregroundColor(.secondary)
+                                    // Never blur (CONT'D)
+                            } else if let extensionString = element.type.characterExtension {
+                                Text(extensionString)
+                                    .font(.headline)
+                                    .fontWeight(.light)
+                                    .italic()
+                                    .foregroundColor(.secondary)
+                                    // Only blur character extension when this specific element is being edited
+                                    .blur(radius: isEditingCharacterExtension ? 2 : 0)
+                                    .animation(.easeInOut(duration: 0.3), value: isEditingCharacterExtension)
+                                    .simultaneousGesture(
+                                        TapGesture()
+                                            .onEnded { _ in
+                                                print("🛠️ CHARACTER EXTENSION TAP: element \(element.id)")
+                                                // Immediately apply the character extension when tapped on Off Screen/VO text
+                                                // Apply this extension to the current dialog input immediately
+                                                viewModel.immediatelyApplyCharacterExtension(element.type)
+                                            }
+                                    )
+                                    .simultaneousGesture(
+                                        LongPressGesture(minimumDuration: 0.5)
+                                            .onEnded { _ in
+                                                print("🛠️ CHARACTER EXTENSION LONG PRESS: element \(element.id)")
+                                                // Long press on character extension shows options to remove or replace
+                                                startEditingCharacterExtension()
+                                            }
+                                    )
+                            }
+                            
+                            Spacer()
                         }
-                    if shouldShowContd {
-                        Text("(CONT'D)")
-                            .font(.headline)
-                            .fontWeight(.light)
-                            .italic()
-                            .foregroundColor(.secondary)
-                            // Never blur (CONT'D)
-                    } else if let extensionString = element.type.characterExtension {
-                        Text(extensionString)
-                            .font(.headline)
-                            .fontWeight(.light)
-                            .italic()
-                            .foregroundColor(.secondary)
-                            // Only blur character extension when this specific element is being edited
-                            .blur(radius: isEditingCharacterExtension ? 2 : 0)
-                            .animation(.easeInOut(duration: 0.3), value: isEditingCharacterExtension)
-                            .simultaneousGesture(
-                                TapGesture()
-                                    .onEnded { _ in
-                                        print("🛠️ CHARACTER EXTENSION TAP: element \(element.id)")
-                                        // Immediately apply the character extension when tapped on Off Screen/VO text
-                                        // Apply this extension to the current dialog input immediately
-                                        viewModel.immediatelyApplyCharacterExtension(element.type)
-                                    }
-                            )
-                            .simultaneousGesture(
-                                LongPressGesture(minimumDuration: 0.5)
-                                    .onEnded { _ in
-                                        print("🛠️ CHARACTER EXTENSION LONG PRESS: element \(element.id)")
-                                        // Long press on character extension shows options to remove or replace
-                                        startEditingCharacterExtension()
-                                    }
-                            )
+                    } else {
+                        // In left/right mode: normal layout
+                        HStack(spacing: 4) {
+                            Text(speaker.displayName(customNames: customSpeakerNames))
+                                .font(.headline)
+                                .fontWeight(.black)
+                                // Only blur speaker name when being renamed
+                                .blur(radius: isRenamingSpeaker ? 2 : 0)
+                                .animation(.easeInOut(duration: 0.3), value: isRenamingSpeaker)
+                                .onLongPressGesture(minimumDuration: 0.5) {
+                                    // Long press on speaker name in dialog scene allows renaming
+                                    startRenamingSpeaker(speaker)
+                                }
+                            
+                            if shouldShowContd {
+                                Text("(CONT'D)")
+                                    .font(.headline)
+                                    .fontWeight(.light)
+                                    .italic()
+                                    .foregroundColor(.secondary)
+                                    // Never blur (CONT'D)
+                            } else if let extensionString = element.type.characterExtension {
+                                Text(extensionString)
+                                    .font(.headline)
+                                    .fontWeight(.light)
+                                    .italic()
+                                    .foregroundColor(.secondary)
+                                    // Only blur character extension when this specific element is being edited
+                                    .blur(radius: isEditingCharacterExtension ? 2 : 0)
+                                    .animation(.easeInOut(duration: 0.3), value: isEditingCharacterExtension)
+                                    .simultaneousGesture(
+                                        TapGesture()
+                                            .onEnded { _ in
+                                                print("🛠️ CHARACTER EXTENSION TAP: element \(element.id)")
+                                                // Immediately apply the character extension when tapped on Off Screen/VO text
+                                                // Apply this extension to the current dialog input immediately
+                                                viewModel.immediatelyApplyCharacterExtension(element.type)
+                                            }
+                                    )
+                                    .simultaneousGesture(
+                                        LongPressGesture(minimumDuration: 0.5)
+                                            .onEnded { _ in
+                                                print("🛠️ CHARACTER EXTENSION LONG PRESS: element \(element.id)")
+                                                // Long press on character extension shows options to remove or replace
+                                                startEditingCharacterExtension()
+                                            }
+                                    )
+                            }
+                        }
                     }
                 }
             }
@@ -1136,6 +1207,10 @@ struct TextInputView: View {
     let selectedSpeaker: Speaker
     let selectedElementType: ScreenplayElementType
     
+    // Add settings manager and localization manager
+    @StateObject private var settingsManager = SettingsManager.shared
+    @StateObject private var localizationManager = LocalizationManager.shared
+    
     private var placeholder: String {
         if isEditing {
             return "Edit \(selectedElementType.displayName.lowercased())...".localized
@@ -1165,13 +1240,17 @@ struct TextInputView: View {
                 onSubmit()
             }
             .multilineTextAlignment(getTextAlignment())
-            .foregroundColor(.primary)  // System black in light mode, white in dark mode
+            .foregroundColor(.primary)
             .padding(.horizontal, 8)
             .padding(.vertical, 12)
             .frame(minHeight: 44)
-            // Disable keyboard suggestions and autocorrection as requested
-            .keyboardType(.asciiCapable)
-            .autocorrectionDisabled(true)
+            // Apply predictive text setting - this is the key fix
+            .autocorrectionDisabled(!settingsManager.wordSuggestionsEnabled)
+            .textInputAutocapitalization(settingsManager.wordSuggestionsEnabled ? .sentences : .never)
+            // Use disableAutocorrection instead of keyboardType for better control
+            .keyboardType(.default)
+            // Set keyboard language based on app language
+            .environment(\.locale, Locale(identifier: localizationManager.currentLanguage))
             .onChange(of: selectedElementType) { _, newType in
                 // Clear text when switching element types to avoid confusion
                 if !text.isEmpty && newType != selectedElementType {
@@ -1338,20 +1417,20 @@ struct ElementTypeSelectorView: View {
                    let editingElement = viewModel.screenplayElements.first(where: { $0.id == editingGroupId }) {
                     switch editingElement.type {
                     case .parenthetical:
-                        return "Remove Parenthetical"
+                        return "Remove Parenthetical".localized
                     case .action:
-                        return "Remove Action"
+                        return "Remove Action".localized
                     case .offScreen:
-                        return "Remove O.S."
+                        return "Remove O.S.".localized
                     case .voiceOver:
-                        return "Remove V.O."
+                        return "Remove V.O.".localized
                     case .text:
-                        return "Remove Text"
+                        return "Remove Text".localized
                     default:
-                        return "Remove"
+                        return "Remove".localized
                     }
                 } else {
-                    return "Remove"
+                    return "Remove".localized
                 }
             } else if editingElement?.type.characterExtension != nil {
                 // When editing character extensions, show plain names for replacement options

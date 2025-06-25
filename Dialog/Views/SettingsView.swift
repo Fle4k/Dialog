@@ -32,6 +32,7 @@ struct SettingsView: View {
             // Language Section
             Section {
                 languageRow
+                wordSuggestionsRow
             } header: {
                 Text("Language".localized)
                     .font(.footnote)
@@ -121,6 +122,30 @@ struct SettingsView: View {
                         .foregroundColor(.secondary)
                 }
                 }
+        }
+        .padding(.vertical, 4)
+    }
+    
+    // MARK: - Word Suggestions Row
+    private var wordSuggestionsRow: some View {
+        HStack(spacing: 12) {
+            VStack(alignment: .leading, spacing: 2) {
+                Text("Predictive".localized)
+                    .font(.body)
+                    .fontWeight(.medium)
+                
+                Text("Enable predictive text suggestions while typing".localized)
+                    .font(.caption)
+                    .foregroundColor(.secondary)
+            }
+            
+            Spacer()
+            
+            Toggle("", isOn: Binding(
+                get: { settingsManager.wordSuggestionsEnabled },
+                set: { settingsManager.updateWordSuggestions($0) }
+            ))
+            .toggleStyle(SwitchToggleStyle(tint: .accentColor))
         }
         .padding(.vertical, 4)
     }

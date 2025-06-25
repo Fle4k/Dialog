@@ -8,10 +8,12 @@ final class SettingsManager: ObservableObject {
     
     @Published var centerLinesEnabled: Bool = false
     @Published var iCloudSyncEnabled: Bool = false
+    @Published var wordSuggestionsEnabled: Bool = false
     
     private let userDefaults = UserDefaults.standard
     private let centerLinesKey = "centerLinesEnabled"
     private let iCloudSyncKey = "iCloudSyncEnabled"
+    private let wordSuggestionsKey = "wordSuggestionsEnabled"
     
     private init() {
         loadSettings()
@@ -20,6 +22,13 @@ final class SettingsManager: ObservableObject {
     private func loadSettings() {
         centerLinesEnabled = userDefaults.bool(forKey: centerLinesKey)
         iCloudSyncEnabled = userDefaults.bool(forKey: iCloudSyncKey)
+        // Default to false for word suggestions if not set
+        if userDefaults.object(forKey: wordSuggestionsKey) == nil {
+            wordSuggestionsEnabled = false
+            saveSetting(false, forKey: wordSuggestionsKey)
+        } else {
+            wordSuggestionsEnabled = userDefaults.bool(forKey: wordSuggestionsKey)
+        }
     }
     
     func saveSetting<T>(_ value: T, forKey key: String) {
@@ -34,5 +43,10 @@ final class SettingsManager: ObservableObject {
     func updateiCloudSync(_ enabled: Bool) {
         iCloudSyncEnabled = enabled
         saveSetting(enabled, forKey: iCloudSyncKey)
+    }
+    
+    func updateWordSuggestions(_ enabled: Bool) {
+        wordSuggestionsEnabled = enabled
+        saveSetting(enabled, forKey: wordSuggestionsKey)
     }
 } 

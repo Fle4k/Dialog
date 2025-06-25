@@ -323,15 +323,15 @@ final class DialogViewModel: ObservableObject {
         
         // Insert at specific position if set (for parentheticals in edit mode), otherwise append
         if let insertAtIndex = insertionPosition {
-            screenplayElements.insert(element, at: insertAtIndex)
-            print("🎭 addScreenplayElement: Inserted element at position \(insertAtIndex)")
-            updateGroupedElements()
+                    screenplayElements.insert(element, at: insertAtIndex)
+        print("🎭 addScreenplayElement: Inserted element at position \(insertAtIndex)")
+        updateGroupedElements()
             // Clear insertion position after use
             insertionPosition = nil
         } else {
-            screenplayElements.append(element)
-            print("🎭 addScreenplayElement: Appended element to end")
-            updateGroupedElements()
+                    screenplayElements.append(element)
+        print("🎭 addScreenplayElement: Appended element to end")
+        updateGroupedElements()
         }
         
         // Also add to legacy textlines for compatibility (and undo support)

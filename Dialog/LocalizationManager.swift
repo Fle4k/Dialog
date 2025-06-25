@@ -13,6 +13,9 @@ class LocalizationManager: ObservableObject {
         "fr": "Français", 
         "es": "Español",
         "fi": "Suomi"
+        // Korean and Farsi localization files exist but are not yet enabled in the picker
+        // "ko": "한국어",
+        // "fa": "فارسی"
     ]
     
     private init() {

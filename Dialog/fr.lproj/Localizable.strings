@@ -2,6 +2,7 @@
 "Settings" = "Réglages";
 "Language" = "Langue";
 "Done" = "Terminé";
+"Back" = "Retour";
 "Enter dialogue..." = "Entrer le texte...";
 "Add Dialogue" = "Nouveau Dialogue";
 "Rename Speaker" = "Renommer le Personnage";
@@ -47,7 +48,6 @@
 "Edit Text" = "Modifier le texte";
 "Flag Text" = "Marquer le texte";
 "Unflag Text" = "Démarquer le texte";
-"Rename Speaker" = "Renommer le personnage";
 "Delete Dialog" = "Supprimer le dialogue";
 "Add Element" = "Ajouter un élément";
 "Delete Element" = "Supprimer l'élément";
@@ -64,4 +64,14 @@
 "Text" = "Texte";
 "Enter off screen dialog..." = "Entrez le dialogue hors champ...";
 "Enter voice over..." = "Entrez la voix off...";
-"Enter text dialog..." = "Entrez le dialogue de texte..."; 
+"Enter text dialog..." = "Entrez le dialogue de texte...";
+"Word Suggestions" = "Suggestions de Mots";
+"Show word suggestion bar while typing" = "Afficher la barre de suggestions en tapant";
+"Remove Parenthetical" = "Supprimer Didascalie";
+"Remove Action" = "Supprimer Action";
+"Remove O.S." = "Supprimer H.C.";
+"Remove V.O." = "Supprimer V.O.";
+"Remove Text" = "Supprimer Texte";
+"Remove" = "Supprimer";
+"Predictive" = "Prédictif";
+"Enable predictive text suggestions while typing" = "Activer les suggestions de texte prédictif lors de la saisie - moins d'espace"; 
