@@ -33,11 +33,11 @@
 "Off Screen" = "Off Screen";
 "Voice Over" = "Voice Over";
 "Text" = "Text";
-"Enter action..." = "Anweisung eingeben...";
-"(enter parenthetical)" = "(Klammer eingeben)";
+"Enter action..." = "Handlung eingeben...";
+"(enter parenthetical)" = "(Regieanweisung eingeben)";
 "Edit" = "Bearbeiten";
-"Edit action..." = "Anweisung bearbeiten...";
-"Edit parenthetical..." = "Klammer bearbeiten...";
+"Edit action..." = "Handlung bearbeiten...";
+"Edit parenthetical..." = "Regieanweisung bearbeiten...";
 "Edit dialogue..." = "Dialog bearbeiten...";
 "Edit off screen dialog..." = "Off Screen Dialog bearbeiten...";
 "Edit voice over..." = "Voice Over bearbeiten...";
@@ -57,8 +57,8 @@
 "Enter text dialog..." = "Text Dialog eingeben...";
 "Predictive" = "Vorhersage";
 "Enable predictive text suggestions while typing" = "Textvorhersage beim Tippen aktivieren - weniger Platz";
-"Remove Parenthetical" = "Klammer entfernen";
-"Remove Action" = "Anweisung entfernen";
+"Remove Parenthetical" = "Regieanweisung entfernen";
+"Remove Action" = "Handlung entfernen";
 "Remove O.S." = "O.S. entfernen";
 "Remove V.O." = "V.O. entfernen";
 "Remove Text" = "Text entfernen";

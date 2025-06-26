@@ -210,6 +210,8 @@
 				fr,
 				it,
 				fi,
+				ko,
+				fa,
 			);
 			mainGroup = DBF1A3862DD7B1040001AE4C;
 			minimizedProjectReferenceProxies = 1;
@@ -413,7 +415,7 @@
 				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
 				CODE_SIGN_ENTITLEMENTS = Dialog/Dialog.entitlements;
 				CODE_SIGN_STYLE = Automatic;
-				CURRENT_PROJECT_VERSION = 4;
+				CURRENT_PROJECT_VERSION = 6;
 				DEVELOPMENT_ASSET_PATHS = "\"Dialog/Preview Content\"";
 				DEVELOPMENT_TEAM = QLZAR4XX2G;
 				ENABLE_PREVIEWS = YES;
@@ -449,7 +451,7 @@
 				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
 				CODE_SIGN_ENTITLEMENTS = Dialog/Dialog.entitlements;
 				CODE_SIGN_STYLE = Automatic;
-				CURRENT_PROJECT_VERSION = 4;
+				CURRENT_PROJECT_VERSION = 6;
 				DEVELOPMENT_ASSET_PATHS = "\"Dialog/Preview Content\"";
 				DEVELOPMENT_TEAM = QLZAR4XX2G;
 				ENABLE_PREVIEWS = YES;
