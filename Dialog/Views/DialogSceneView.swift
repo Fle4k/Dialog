@@ -251,6 +251,10 @@ struct DialogSceneView: View {
                         exportDocument(type: .fdx)
                     }
                     
+                    Button("Export as .pdf".localized) {
+                        exportDocument(type: .pdf)
+                    }
+                    
                     Button("Export as .rtf".localized) {
                         exportDocument(type: .rtf)
                     }
@@ -519,7 +523,7 @@ struct DialogSceneView: View {
     // MARK: - Helper Methods
     
     private enum DocumentType {
-        case fdx, rtf, text
+        case fdx, pdf, rtf, text
     }
     
     private func exportDocument(type: DocumentType) {
@@ -528,6 +532,8 @@ struct DialogSceneView: View {
         switch type {
         case .fdx:
             url = viewModel.exportToFDXURL()
+        case .pdf:
+            url = viewModel.exportToPDFURL()
         case .rtf:
             url = viewModel.exportToRTFURL()
         case .text:

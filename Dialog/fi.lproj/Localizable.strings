@@ -76,5 +76,6 @@
 "Predictive" = "Ennakoiva";
 "Enable predictive text suggestions while typing" = "Ota käyttöön ennakoivat tekstiehdotukset kirjoittaessa - vähemmän tilaa";
 "Export as .fdx" = "Vie .fdx-muodossa";
+"Export as .pdf" = "Vie .pdf-muodossa";
 "Export as .rtf" = "Vie .rtf-muodossa";
 "Export as .txt" = "Vie .txt-muodossa"; 

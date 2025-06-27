@@ -76,5 +76,6 @@
 "Predictive" = "Predictivo";
 "Enable predictive text suggestions while typing" = "Activar sugerencias de texto predictivo al escribir - menos espacio";
 "Export as .fdx" = "Exportar como .fdx";
+"Export as .pdf" = "Exportar como .pdf";
 "Export as .rtf" = "Exportar como .rtf";
 "Export as .txt" = "Exportar como .txt"; 

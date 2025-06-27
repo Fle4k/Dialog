@@ -74,5 +74,6 @@
 "Remove Text" = "텍스트 제거";
 "Remove" = "제거";
 "Export as .fdx" = ".fdx로 내보내기";
+"Export as .pdf" = ".pdf로 내보내기";
 "Export as .rtf" = ".rtf로 내보내기";
 "Export as .txt" = ".txt로 내보내기"; 

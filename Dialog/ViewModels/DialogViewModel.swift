@@ -764,6 +764,128 @@ final class DialogViewModel: ObservableObject {
         return tempURL
     }
     
+    func exportToPDF() -> Data {
+        // Use new screenplay elements if available, otherwise fall back to legacy textlines
+        let elementsToExport = screenplayElements.isEmpty ? textlines.map { $0.toScreenplayElement() } : screenplayElements
+        
+        // Create PDF context
+        let pageSize = CGSize(width: 612, height: 792) // 8.5" x 11" in points (72 DPI)
+        let pdfRenderer = UIGraphicsPDFRenderer(bounds: CGRect(origin: .zero, size: pageSize))
+        
+        let pdfData = pdfRenderer.pdfData { context in
+            var yPosition: CGFloat = 72 // Start 1 inch from top
+            let leftMargin: CGFloat = 108 // 1.5 inches for character names
+            let rightMargin: CGFloat = 72  // 1 inch from right
+            let dialogMargin: CGFloat = 144 // 2 inches for dialogue
+            let pageHeight = pageSize.height - 72 // Leave 1 inch at bottom
+            
+            // Courier font - industry standard
+            let courierFont = UIFont(name: "Courier", size: 12) ?? UIFont.systemFont(ofSize: 12)
+            let courierBoldFont = UIFont(name: "Courier-Bold", size: 12) ?? UIFont.boldSystemFont(ofSize: 12)
+            
+            context.beginPage()
+            
+            for element in elementsToExport {
+                // Check if we need a new page
+                if yPosition > pageHeight - 100 {
+                    context.beginPage()
+                    yPosition = 72
+                }
+                
+                switch element.type {
+                case .dialogue, .offScreen, .voiceOver, .text:
+                    if let speaker = element.speaker {
+                        let speakerName = speaker.displayName(customNames: customSpeakerNames)
+                        let characterExtension = element.type.characterExtension ?? ""
+                        let fullSpeakerName = characterExtension.isEmpty ? speakerName : "\(speakerName) \(characterExtension)"
+                        
+                        // Character name - centered and uppercase
+                        let characterAttributes: [NSAttributedString.Key: Any] = [
+                            .font: courierBoldFont,
+                            .foregroundColor: UIColor.black
+                        ]
+                        
+                        let characterString = NSAttributedString(string: fullSpeakerName.uppercased(), attributes: characterAttributes)
+                        let characterSize = characterString.size()
+                        let characterX = (pageSize.width - characterSize.width) / 2
+                        characterString.draw(at: CGPoint(x: characterX, y: yPosition))
+                        
+                        yPosition += characterSize.height + 6
+                        
+                        // Dialogue - centered with proper width
+                        let dialogueAttributes: [NSAttributedString.Key: Any] = [
+                            .font: courierFont,
+                            .foregroundColor: UIColor.black
+                        ]
+                        
+                        let maxDialogueWidth: CGFloat = 252 // About 3.5 inches for dialogue
+                        let dialogueString = NSAttributedString(string: element.content, attributes: dialogueAttributes)
+                        
+                        let dialogueSize = dialogueString.boundingRect(
+                            with: CGSize(width: maxDialogueWidth, height: CGFloat.greatestFiniteMagnitude),
+                            options: [.usesLineFragmentOrigin, .usesFontLeading],
+                            context: nil
+                        )
+                        
+                        dialogueString.draw(in: CGRect(x: dialogMargin, y: yPosition, width: maxDialogueWidth, height: dialogueSize.height))
+                        yPosition += dialogueSize.height + 12
+                    }
+                    
+                case .parenthetical:
+                    // Parenthetical - centered and slightly indented
+                    let parentheticalAttributes: [NSAttributedString.Key: Any] = [
+                        .font: courierFont,
+                        .foregroundColor: UIColor.black
+                    ]
+                    
+                    let parentheticalText = "(\(element.content))"
+                    let parentheticalString = NSAttributedString(string: parentheticalText, attributes: parentheticalAttributes)
+                    let parentheticalSize = parentheticalString.size()
+                    let parentheticalX = (pageSize.width - parentheticalSize.width) / 2
+                    parentheticalString.draw(at: CGPoint(x: parentheticalX, y: yPosition))
+                    
+                    yPosition += parentheticalSize.height + 6
+                    
+                case .action:
+                    // Action - left aligned, full width, uppercase
+                    let actionAttributes: [NSAttributedString.Key: Any] = [
+                        .font: courierFont,
+                        .foregroundColor: UIColor.black
+                    ]
+                    
+                    let actionText = element.content.uppercased()
+                    let actionString = NSAttributedString(string: actionText, attributes: actionAttributes)
+                    let actionWidth = pageSize.width - leftMargin - rightMargin
+                    
+                    let actionSize = actionString.boundingRect(
+                        with: CGSize(width: actionWidth, height: CGFloat.greatestFiniteMagnitude),
+                        options: [.usesLineFragmentOrigin, .usesFontLeading],
+                        context: nil
+                    )
+                    
+                    actionString.draw(in: CGRect(x: leftMargin, y: yPosition, width: actionWidth, height: actionSize.height))
+                    yPosition += actionSize.height + 18 // Extra space after actions
+                }
+            }
+        }
+        
+        return pdfData
+    }
+    
+    func exportToPDFURL() -> URL {
+        let data = exportToPDF()
+        let filename = generateFilename(suffix: "pdf")
+        let tempURL = FileManager.default.temporaryDirectory.appendingPathComponent(filename)
+        
+        do {
+            try data.write(to: tempURL)
+        } catch {
+            print("Failed to write PDF file: \(error)")
+        }
+        
+        return tempURL
+    }
+    
     func exportToFDX() -> Data {
         // Use new screenplay elements if available, otherwise fall back to legacy textlines
         let elementsToExport = screenplayElements.isEmpty ? textlines.map { $0.toScreenplayElement() } : screenplayElements
