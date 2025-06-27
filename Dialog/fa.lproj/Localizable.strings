@@ -72,4 +72,7 @@
 "Remove O.S." = "حذف خارج از صفحه";
 "Remove V.O." = "حذف صدای راوی";
 "Remove Text" = "حذف متن";
-"Remove" = "حذف"; 
+"Remove" = "حذف";
+"Export as .fdx" = "خروجی به صورت .fdx";
+"Export as .rtf" = "خروجی به صورت .rtf";
+"Export as .txt" = "خروجی به صورت .txt"; 

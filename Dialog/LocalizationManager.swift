@@ -27,12 +27,13 @@ class LocalizationManager: ObservableObject {
     }
     
     @Published var currentLanguage: String = ""
+    @Published var isLanguageChanging: Bool = false
     
     private var selectedLanguageInternal: String {
         get { selectedLanguage }
         set { 
             selectedLanguage = newValue
-            currentLanguage = newValue
+            updateLanguage(newValue)
         }
     }
     
@@ -52,7 +53,25 @@ class LocalizationManager: ObservableObject {
     }
     
     func setLanguage(_ language: String) {
-        selectedLanguageInternal = language
+        // Add smooth transition state
+        isLanguageChanging = true
+        
+        // Delay the actual language change to allow for smooth UI transition
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) {
+            self.selectedLanguageInternal = language
+            
+            // Reset transition state after language change
+            DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) {
+                self.isLanguageChanging = false
+            }
+        }
+    }
+    
+    private func updateLanguage(_ language: String) {
+        currentLanguage = language
+        
+        // Trigger UI update by posting notification
+        NotificationCenter.default.post(name: .languageChanged, object: language)
     }
     
     func localizedString(_ key: String) -> String {
@@ -66,4 +85,8 @@ extension String {
     var localized: String {
         return LocalizationManager.shared.localizedString(self)
     }
+}
+
+extension Notification.Name {
+    static let languageChanged = Notification.Name("languageChanged")
 } 

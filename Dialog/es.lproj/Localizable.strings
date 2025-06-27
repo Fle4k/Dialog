@@ -74,4 +74,7 @@
 "Remove Text" = "Eliminar Texto";
 "Remove" = "Eliminar";
 "Predictive" = "Predictivo";
-"Enable predictive text suggestions while typing" = "Activar sugerencias de texto predictivo al escribir - menos espacio"; 
+"Enable predictive text suggestions while typing" = "Activar sugerencias de texto predictivo al escribir - menos espacio";
+"Export as .fdx" = "Exportar como .fdx";
+"Export as .rtf" = "Exportar como .rtf";
+"Export as .txt" = "Exportar como .txt"; 

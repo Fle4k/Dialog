@@ -5,6 +5,8 @@
 "Back" = "Zurück";
 "Enter dialogue..." = "Text eingeben...";
 "Add Dialogue" = "Neuer Dialog";
+"New Dialog" = "Neuer Dialog";
+"NEW DIALOG" = "NEUER DIALOG";
 "Rename Speaker" = "Figur umbenennen";
 "Save" = "Speichern";
 "Cancel" = "Abbrechen"; 
@@ -28,6 +30,9 @@
 "Export to Final Draft" = "Zu Final Draft exportieren";
 "Export as RTF" = "Als RTF exportieren";
 "Export as Text" = "Als Text exportieren";
+"Export as .fdx" = "Als .fdx exportieren";
+"Export as .rtf" = "Als .rtf exportieren";
+"Export as .txt" = "Als .txt exportieren";
 "Action" = "Handlung";
 "Parenthetical" = "Regieanweisung";
 "Off Screen" = "Off Screen";

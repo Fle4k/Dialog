@@ -4,6 +4,7 @@ import SwiftUI
 struct MainMenuView: View {
     @StateObject private var viewModel = MainMenuViewModel()
     @StateObject private var undoManager = AppUndoManager.shared
+    @StateObject private var localizationManager = LocalizationManager.shared
     @State private var showingSettings = false
     
     // Undo state
@@ -42,7 +43,6 @@ struct MainMenuView: View {
                             } label: {
                                 HStack {
                                     Text(option.displayName)
-                                    Image(systemName: option.systemImage)
                                     if viewModel.sortOption == option {
                                         Image(systemName: "checkmark")
                                     }
@@ -58,10 +58,7 @@ struct MainMenuView: View {
                         Button {
                             showingSettings = true
                         } label: {
-                            HStack {
-                                Text("Settings".localized)
-                                Image(systemName: "gear")
-                            }
+                            Text("Settings".localized)
                         }
                     } label: {
                         Image(systemName: "ellipsis")

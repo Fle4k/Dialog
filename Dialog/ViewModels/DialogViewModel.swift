@@ -305,6 +305,11 @@ final class DialogViewModel: ObservableObject {
         // Process content based on element type
         var processedContent = trimmedText
         
+        // Apply text processing (capitalization) for dialogue and actions
+        if selectedElementType == .dialogue || selectedElementType == .action || selectedElementType == .offScreen || selectedElementType == .voiceOver || selectedElementType == .text {
+            processedContent = processInputText(processedContent)
+        }
+        
         // For parentheticals, remove outer parentheses if they exist (we'll add them in display)
         if selectedElementType == .parenthetical {
             if trimmedText.hasPrefix("(") && trimmedText.hasSuffix(")") && trimmedText.count > 2 {
@@ -323,15 +328,15 @@ final class DialogViewModel: ObservableObject {
         
         // Insert at specific position if set (for parentheticals in edit mode), otherwise append
         if let insertAtIndex = insertionPosition {
-                    screenplayElements.insert(element, at: insertAtIndex)
-        print("🎭 addScreenplayElement: Inserted element at position \(insertAtIndex)")
-        updateGroupedElements()
+            screenplayElements.insert(element, at: insertAtIndex)
+            print("🎭 addScreenplayElement: Inserted element at position \(insertAtIndex)")
+            updateGroupedElements()
             // Clear insertion position after use
             insertionPosition = nil
         } else {
-                    screenplayElements.append(element)
-        print("🎭 addScreenplayElement: Appended element to end")
-        updateGroupedElements()
+            screenplayElements.append(element)
+            print("🎭 addScreenplayElement: Appended element to end")
+            updateGroupedElements()
         }
         
         // Also add to legacy textlines for compatibility (and undo support)
@@ -440,6 +445,9 @@ final class DialogViewModel: ObservableObject {
         undoManager.recordAction(.renameSpeaker(speaker, oldName, newName))
         
         customSpeakerNames[speaker] = newName
+        
+        // Update the grouped elements to refresh the UI with the new speaker name
+        updateGroupedElements()
     }
     
     func deleteText(withId id: UUID) {
@@ -607,10 +615,29 @@ final class DialogViewModel: ObservableObject {
     
     // MARK: - Export Methods
     func exportToText() -> String {
+        // Use new screenplay elements if available, otherwise fall back to legacy textlines
+        let elementsToExport = screenplayElements.isEmpty ? textlines.map { $0.toScreenplayElement() } : screenplayElements
+        
         var result = ""
-        for speakerText in textlines {
-            let speakerName = speakerText.speaker.displayName(customNames: customSpeakerNames)
-            result += "\(speakerName): \(speakerText.text)\n\n"
+        
+        for element in elementsToExport {
+            switch element.type {
+            case .dialogue, .offScreen, .voiceOver, .text:
+                if let speaker = element.speaker {
+                    let speakerName = speaker.displayName(customNames: customSpeakerNames)
+                    let characterExtension = element.type.characterExtension ?? ""
+                    let fullSpeakerName = characterExtension.isEmpty ? speakerName : "\(speakerName) \(characterExtension)"
+                    result += "\(fullSpeakerName): \(element.content)\n\n"
+                }
+                
+            case .parenthetical:
+                // Parentheticals are NOT prefixed with speaker name in export
+                result += "(\(element.content))\n\n"
+                
+            case .action:
+                // Actions are written as-is without speaker prefix
+                result += "\(element.content.uppercased())\n\n"
+            }
         }
         return result
     }
@@ -630,17 +657,38 @@ final class DialogViewModel: ObservableObject {
     }
     
     func exportToRTF() -> Data {
+        // Use new screenplay elements if available, otherwise fall back to legacy textlines
+        let elementsToExport = screenplayElements.isEmpty ? textlines.map { $0.toScreenplayElement() } : screenplayElements
+        
         var rtfContent = "{\\rtf1\\ansi\\deff0 {\\fonttbl \\f0 Courier New;} \\f0\\fs24"
         
-        for speakerText in textlines {
-            let speakerName = escapeRTFText(speakerText.speaker.displayName(customNames: customSpeakerNames).uppercased())
-            
-            // Add centered speaker name in caps
-            rtfContent += "\\par\\par\\qc\\b \(speakerName)\\b0\\par"
-            
-            // Break long lines and add dialog text (centered)
-            let wrappedText = wrapText(escapeRTFText(speakerText.text), maxLength: 35)
-            rtfContent += "\\qc \(wrappedText)\\par"
+        for element in elementsToExport {
+            switch element.type {
+            case .dialogue, .offScreen, .voiceOver, .text:
+                if let speaker = element.speaker {
+                    let speakerName = speaker.displayName(customNames: customSpeakerNames)
+                    let characterExtension = element.type.characterExtension ?? ""
+                    let fullSpeakerName = characterExtension.isEmpty ? speakerName : "\(speakerName) \(characterExtension)"
+                    let escapedSpeakerName = escapeRTFText(fullSpeakerName.uppercased())
+                    
+                    // Add centered speaker name in caps
+                    rtfContent += "\\par\\par\\qc\\b \(escapedSpeakerName)\\b0\\par"
+                    
+                    // Break long lines and add dialog text (centered)
+                    let wrappedText = wrapText(escapeRTFText(element.content), maxLength: 35)
+                    rtfContent += "\\qc \(wrappedText)\\par"
+                }
+                
+            case .parenthetical:
+                // Parentheticals are NOT prefixed with speaker name in RTF export
+                let wrappedText = wrapText(escapeRTFText("(\(element.content))"), maxLength: 35)
+                rtfContent += "\\par\\qc \(wrappedText)\\par"
+                
+            case .action:
+                // Actions are uppercase and left-aligned
+                let wrappedText = wrapText(escapeRTFText(element.content.uppercased()), maxLength: 60)
+                rtfContent += "\\par\\par\\ql \(wrappedText)\\par"
+            }
         }
         
         rtfContent += "}"
@@ -932,7 +980,7 @@ final class DialogViewModel: ObservableObject {
     // MARK: - Title Management
     func updateTitle(_ newTitle: String) {
         let trimmedTitle = newTitle.trimmingCharacters(in: .whitespacesAndNewlines)
-        currentTitle = trimmedTitle.isEmpty ? "New Dialogue".localized : trimmedTitle
+        currentTitle = trimmedTitle.isEmpty ? "New Dialog".localized : trimmedTitle
     }
     
     // MARK: - Undo Methods
@@ -1318,5 +1366,26 @@ final class DialogViewModel: ObservableObject {
         updateGroupedElements()
         
         print("🔄 Redid element type change: \(oldType) → \(newType)")
+    }
+    
+    // MARK: - Text Processing
+    private func capitalizeFirstLetter(_ text: String) -> String {
+        guard !text.isEmpty else { return text }
+        
+        // Find the first letter (skip any leading punctuation or spaces)
+        let trimmed = text.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !trimmed.isEmpty else { return text }
+        
+        let firstChar = trimmed.first!
+        if firstChar.isLetter && firstChar.isLowercase {
+            return trimmed.prefix(1).uppercased() + trimmed.dropFirst()
+        }
+        
+        return text
+    }
+
+    private func processInputText(_ text: String) -> String {
+        // Capitalize first letter of new sentences
+        return capitalizeFirstLetter(text)
     }
 } 

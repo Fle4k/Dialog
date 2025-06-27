@@ -162,11 +162,16 @@ struct DialogSceneView: View {
     @StateObject private var viewModel = DialogViewModel()
     @StateObject private var scrollCoordinator = ScrollCoordinator()
     @StateObject private var settingsManager = SettingsManager.shared
+    @StateObject private var localizationManager = LocalizationManager.shared
     @StateObject private var undoManager = AppUndoManager.shared
     @FocusState private var isInputFocused: Bool
     @Environment(\.dismiss) private var dismiss
     @Environment(\.colorScheme) private var colorScheme
     @Environment(\.presentationMode) var presentationMode
+    
+    // Auto-save state
+    @State private var autoSaveTimer: Timer?
+    private let autoSaveInterval: TimeInterval = 10.0 // Save every 10 seconds
     
     // Rename alert state
     @State private var showingTitleRenameAlert = false
@@ -242,15 +247,15 @@ struct DialogSceneView: View {
                     
                     Divider()
                     
-                    Button("Export to Final Draft".localized) {
+                    Button("Export as .fdx".localized) {
                         exportDocument(type: .fdx)
                     }
                     
-                    Button("Export as RTF".localized) {
+                    Button("Export as .rtf".localized) {
                         exportDocument(type: .rtf)
                     }
                     
-                    Button("Export as Text".localized) {
+                    Button("Export as .txt".localized) {
                         exportDocument(type: .text)
                     }
                 } label: {
@@ -310,21 +315,26 @@ struct DialogSceneView: View {
             Text("Enter a new name for this dialog".localized)
         }
         .alert("Rename Speaker".localized, isPresented: .constant(viewModel.speakerToRenameFromDialog != nil)) {
-            TextField("Speaker name".localized, text: Binding(
-                get: { viewModel.customSpeakerNames[viewModel.speakerToRenameFromDialog ?? .a] ?? "" },
-                set: { newSpeakerName = $0 }
-            ))
+            TextField("Speaker name".localized, text: $newSpeakerName)
             Button("Cancel".localized, role: .cancel) { 
                 viewModel.speakerToRenameFromDialog = nil
+                newSpeakerName = ""
             }
             Button("Save".localized) {
                 if let speaker = viewModel.speakerToRenameFromDialog {
                     viewModel.renameSpeaker(speaker, to: newSpeakerName)
                 }
                 viewModel.speakerToRenameFromDialog = nil
+                newSpeakerName = ""
             }
         } message: {
             Text("Enter a custom name for this speaker".localized)
+        }
+        .onChange(of: viewModel.speakerToRenameFromDialog) { _, speaker in
+            if let speaker = speaker {
+                // Initialize the text field with the current custom name when the alert appears
+                newSpeakerName = viewModel.customSpeakerNames[speaker] ?? ""
+            }
         }
         .statusBarHidden(viewModel.isFullscreenMode)
         .onAppear {
@@ -332,12 +342,31 @@ struct DialogSceneView: View {
                 viewModel.initializeForExistingSession(session)
             } else {
                 viewModel.initializeForNewSession()
+                
+                // Restore any unsaved input text from previous session
+                restoreInputTextFromUserDefaults()
             }
+            
+            // Start auto-save timer
+            startAutoSaveTimer()
         }
         .onDisappear {
-            // Only save the session if it has content (dialogue, parentheticals, or actions)
-            if !viewModel.screenplayElements.isEmpty {
-                onSave?(viewModel)
+            // Stop auto-save timer
+            stopAutoSaveTimer()
+            
+            // Final save when leaving the view
+            saveCurrentState()
+        }
+        .onChange(of: viewModel.screenplayElements) { _, _ in
+            // Save state whenever content changes
+            scheduleAutoSave()
+        }
+        .onChange(of: viewModel.inputText) { _, newText in
+            // Save input text changes immediately to UserDefaults for recovery
+            if !newText.isEmpty {
+                UserDefaults.standard.set(newText, forKey: "currentInputText")
+            } else {
+                UserDefaults.standard.removeObject(forKey: "currentInputText")
             }
         }
         .onChange(of: viewModel.shouldFocusInput) { _, shouldFocus in
@@ -635,8 +664,54 @@ struct DialogSceneView: View {
         }
     }
     
-    // MARK: - Helper Methods
-
+    // MARK: - Auto-Save Methods
+    
+    private func startAutoSaveTimer() {
+        autoSaveTimer = Timer.scheduledTimer(withTimeInterval: autoSaveInterval, repeats: true) { _ in
+            saveCurrentState()
+        }
+    }
+    
+    private func stopAutoSaveTimer() {
+        autoSaveTimer?.invalidate()
+        autoSaveTimer = nil
+    }
+    
+    private func scheduleAutoSave() {
+        // Debounce auto-save to avoid too frequent saves
+        autoSaveTimer?.invalidate()
+        autoSaveTimer = Timer.scheduledTimer(withTimeInterval: 2.0, repeats: false) { _ in
+            saveCurrentState()
+        }
+    }
+    
+    private func saveCurrentState() {
+        // Only save if there's meaningful content
+        if !viewModel.screenplayElements.isEmpty || !viewModel.inputText.isEmpty {
+            onSave?(viewModel)
+            
+            // Also save to UserDefaults as backup
+            saveStateToUserDefaults()
+        }
+    }
+    
+    private func saveStateToUserDefaults() {
+        do {
+            let session = DialogSession(from: viewModel)
+            let data = try JSONEncoder().encode(session)
+            UserDefaults.standard.set(data, forKey: "currentDialogSession")
+            UserDefaults.standard.synchronize()
+        } catch {
+            print("Failed to save current state to UserDefaults: \(error)")
+        }
+    }
+    
+    private func restoreInputTextFromUserDefaults() {
+        if let savedText = UserDefaults.standard.string(forKey: "currentInputText") {
+            viewModel.inputText = savedText
+        }
+    }
+    
     private func handleShakeGesture() {
         guard viewModel.canUndo() || viewModel.canRedo() else { return }
         
@@ -1199,83 +1274,7 @@ struct SpeakerSelectorView: View {
     }
 }
 
-struct TextInputView: View {
-    @Binding var text: String
-    @FocusState.Binding var isInputFocused: Bool
-    let onSubmit: () -> Void
-    let isEditing: Bool
-    let selectedSpeaker: Speaker
-    let selectedElementType: ScreenplayElementType
-    
-    // Add settings manager and localization manager
-    @StateObject private var settingsManager = SettingsManager.shared
-    @StateObject private var localizationManager = LocalizationManager.shared
-    
-    private var placeholder: String {
-        if isEditing {
-            return "Edit \(selectedElementType.displayName.lowercased())...".localized
-        } else {
-            switch selectedElementType {
-            case .dialogue:
-                return "Enter dialog...".localized
-            case .parenthetical:
-                return "(enter parenthetical)".localized
-            case .action:
-                return "Enter action...".localized
-            case .offScreen:
-                return "Enter off screen dialog...".localized
-            case .voiceOver:
-                return "Enter voice over...".localized
-            case .text:
-                return "Enter text dialog...".localized
-            }
-        }
-    }
-    
-    var body: some View {
-        TextField(placeholder, text: $text, axis: .vertical)
-            .lineLimit(selectedElementType == .action ? 1...10 : 1...4)
-            .focused($isInputFocused)
-            .onSubmit {
-                onSubmit()
-            }
-            .multilineTextAlignment(getTextAlignment())
-            .foregroundColor(.primary)
-            .padding(.horizontal, 8)
-            .padding(.vertical, 12)
-            .frame(minHeight: 44)
-            // Apply predictive text setting - this is the key fix
-            .autocorrectionDisabled(!settingsManager.wordSuggestionsEnabled)
-            .textInputAutocapitalization(settingsManager.wordSuggestionsEnabled ? .sentences : .never)
-            // Use disableAutocorrection instead of keyboardType for better control
-            .keyboardType(.default)
-            // Set keyboard language based on app language
-            .environment(\.locale, Locale(identifier: localizationManager.currentLanguage))
-            .onChange(of: selectedElementType) { _, newType in
-                // Clear text when switching element types to avoid confusion
-                if !text.isEmpty && newType != selectedElementType {
-                    text = ""
-                }
-            }
-    }
-    
-    private func getTextAlignment() -> TextAlignment {
-        if isEditing && selectedSpeaker == .b {
-            return .trailing
-        }
-        
-        switch selectedElementType {
-        case .dialogue:
-            return selectedSpeaker == .b ? .trailing : .leading
-        case .parenthetical:
-            return selectedSpeaker == .b ? .trailing : .leading  // Align with speaker
-        case .action:
-            return .leading
-        case .offScreen, .voiceOver, .text:
-            return selectedSpeaker == .b ? .trailing : .leading  // Same as dialogue
-        }
-    }
-}
+
 
 struct ElementTypeSelectorView: View {
     @Binding var selectedElementType: ScreenplayElementType
