@@ -143,11 +143,11 @@ final class InAppPurchaseManager: ObservableObject {
     
     // MARK: - Helper Methods
     func canCreateNewScene(currentSceneCount: Int) -> Bool {
-        return hasUnlimitedScenes || currentSceneCount < 3
+        return hasUnlimitedScenes || currentSceneCount < 5
     }
     
     func getRemainingFreeScenes(currentSceneCount: Int) -> Int {
-        return hasUnlimitedScenes ? Int.max : max(0, 3 - currentSceneCount)
+        return hasUnlimitedScenes ? Int.max : max(0, 5 - currentSceneCount)
     }
 }
 

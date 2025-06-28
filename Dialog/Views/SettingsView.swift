@@ -41,6 +41,16 @@ struct SettingsView: View {
                     .foregroundColor(.secondary)
             }
             
+            // Recommended Apps Section
+            Section {
+                CharacterCreatorRecommendationView()
+            } header: {
+                Text("Recommended App".localized)
+                    .font(.footnote)
+                    .fontWeight(.medium)
+                    .foregroundColor(.secondary)
+            }
+            
             // Premium Section
             Section {
                 premiumRow
@@ -52,16 +62,6 @@ struct SettingsView: View {
             } footer: {
                 Text("Unlock unlimited dialog scenes and support the development of this app.".localized)
                     .font(.caption)
-                    .foregroundColor(.secondary)
-            }
-            
-            // Recommended Apps Section
-            Section {
-                CharacterCreatorRecommendationView()
-            } header: {
-                Text("Recommended App".localized)
-                    .font(.footnote)
-                    .fontWeight(.medium)
                     .foregroundColor(.secondary)
             }
 //            footer: {
@@ -196,7 +196,7 @@ struct SettingsView: View {
                     }
                 }
                 .font(.caption)
-                .foregroundColor(.blue)
+                .foregroundColor(.primary)
                 .disabled(purchaseManager.isLoading)
                 
             } else {
@@ -208,7 +208,7 @@ struct SettingsView: View {
                                 .font(.body)
                                 .fontWeight(.medium)
                             
-                            Text("Currently: 3 free scenes".localized)
+                            Text("Currently: 5 free scenes".localized)
                                 .font(.caption)
                                 .foregroundColor(.secondary)
                         }
@@ -217,8 +217,8 @@ struct SettingsView: View {
                         
                         Text("€1.99")
                             .font(.title2)
-                            .fontWeight(.bold)
-                            .foregroundColor(.accentColor)
+                            .fontWeight(.light)
+                            .foregroundColor(.primary)
                     }
                     
                     Button {
@@ -241,7 +241,7 @@ struct SettingsView: View {
                         }
                         .frame(maxWidth: .infinity)
                         .padding(.vertical, 10)
-                        .background(Color.accentColor)
+                        .background(Color.primary)
                         .foregroundColor(.white)
                         .clipShape(RoundedRectangle(cornerRadius: 8))
                     }
@@ -254,7 +254,7 @@ struct SettingsView: View {
                         }
                     }
                     .font(.caption)
-                    .foregroundColor(.blue)
+                    .foregroundColor(.primary)
                     .disabled(purchaseManager.isLoading)
                 }
                 .padding(.vertical, 4)

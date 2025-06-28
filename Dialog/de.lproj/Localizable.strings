@@ -69,3 +69,14 @@
 "Remove V.O." = "V.O. entfernen";
 "Remove Text" = "Text entfernen";
 "Remove" = "Entfernen";
+
+// Premium Features
+"Premium Features" = "Premium-Features";
+"Unlock unlimited dialog scenes and support the development of this app." = "Schalte unbegrenzte Dialog-Szenen frei und unterstütze die Entwicklung dieser App.";
+"Premium Unlocked" = "Premium freigeschaltet";
+"You have unlimited dialog scenes" = "Du hast unbegrenzte Dialog-Szenen";
+"Unlimited Dialog Scenes" = "Unbegrenzte Dialog-Szenen";
+"Currently: 5 free scenes" = "Aktuell: 5 kostenlose Szenen";
+"Unlock Premium" = "Premium freischalten";
+"Processing..." = "Wird verarbeitet...";
+"Restore Purchases" = "Käufe wiederherstellen";
