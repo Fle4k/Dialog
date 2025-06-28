@@ -6,6 +6,10 @@
 	objectVersion = 77;
 	objects = {
 
+/* Begin PBXBuildFile section */
+		DB9E17D62E1059F6004CE06B /* StoreKit.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = DB9E17D52E1059F6004CE06B /* StoreKit.framework */; };
+/* End PBXBuildFile section */
+
 /* Begin PBXContainerItemProxy section */
 		DBF1A3A02DD7B1060001AE4C /* PBXContainerItemProxy */ = {
 			isa = PBXContainerItemProxy;
@@ -24,6 +28,7 @@
 /* End PBXContainerItemProxy section */
 
 /* Begin PBXFileReference section */
+		DB9E17D52E1059F6004CE06B /* StoreKit.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = StoreKit.framework; path = System/Library/Frameworks/StoreKit.framework; sourceTree = SDKROOT; };
 		DBF1A38F2DD7B1050001AE4C /* Dialog Pro.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = "Dialog Pro.app"; sourceTree = BUILT_PRODUCTS_DIR; };
 		DBF1A39F2DD7B1060001AE4C /* DialogTests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = DialogTests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
 		DBF1A3A92DD7B1060001AE4C /* DialogUITests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = DialogUITests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
@@ -65,6 +70,7 @@
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				DB9E17D62E1059F6004CE06B /* StoreKit.framework in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -85,12 +91,21 @@
 /* End PBXFrameworksBuildPhase section */
 
 /* Begin PBXGroup section */
+		DB9E17D42E1059F6004CE06B /* Frameworks */ = {
+			isa = PBXGroup;
+			children = (
+				DB9E17D52E1059F6004CE06B /* StoreKit.framework */,
+			);
+			name = Frameworks;
+			sourceTree = "<group>";
+		};
 		DBF1A3862DD7B1040001AE4C = {
 			isa = PBXGroup;
 			children = (
 				DBF1A3912DD7B1050001AE4C /* Dialog */,
 				DBF1A3A22DD7B1060001AE4C /* DialogTests */,
 				DBF1A3AC2DD7B1060001AE4C /* DialogUITests */,
+				DB9E17D42E1059F6004CE06B /* Frameworks */,
 				DBF1A3902DD7B1050001AE4C /* Products */,
 			);
 			sourceTree = "<group>";

@@ -5,7 +5,9 @@ struct MainMenuView: View {
     @StateObject private var viewModel = MainMenuViewModel()
     @StateObject private var undoManager = AppUndoManager.shared
     @StateObject private var localizationManager = LocalizationManager.shared
+    @StateObject private var purchaseManager = InAppPurchaseManager.shared
     @State private var showingSettings = false
+    @State private var showingLimitAlert = false
     
     // Undo state
     @State private var showingUndoToast = false
@@ -75,17 +77,62 @@ struct MainMenuView: View {
     
     // MARK: - Add Button View
     private var addButtonView: some View {
-        NavigationLink {
-            DialogSceneView { dialogViewModel in
-                viewModel.saveSession(dialogViewModel)
+        VStack(spacing: 12) {
+            // Scene count indicator
+            if !purchaseManager.hasUnlimitedScenes {
+                let remainingScenes = purchaseManager.getRemainingFreeScenes(currentSceneCount: viewModel.dialogSessions.count)
+                
+                HStack {
+                    Image(systemName: "doc.text")
+                        .font(.caption)
+                        .foregroundColor(.secondary)
+                    
+                    Text("\(remainingScenes) free scenes remaining")
+                        .font(.caption)
+                        .foregroundColor(.secondary)
+                    
+                    if remainingScenes == 0 {
+                        Button("Upgrade") {
+                            showingSettings = true
+                        }
+                        .font(.caption)
+                        .fontWeight(.medium)
+                        .foregroundColor(.accentColor)
+                    }
+                }
             }
-        } label: {
-                            Text("NEW DIALOG".localized)
-                .font(.system(size: 20))
-                .fontWeight(.bold)
-                .foregroundColor(.primary)
+            
+            if purchaseManager.canCreateNewScene(currentSceneCount: viewModel.dialogSessions.count) {
+                NavigationLink {
+                    DialogSceneView { dialogViewModel in
+                        viewModel.saveSession(dialogViewModel)
+                    }
+                } label: {
+                    Text("NEW DIALOG".localized)
+                        .font(.system(size: 20))
+                        .fontWeight(.bold)
+                        .foregroundColor(.primary)
+                }
+            } else {
+                Button {
+                    showingLimitAlert = true
+                } label: {
+                    Text("NEW DIALOG".localized)
+                        .font(.system(size: 20))
+                        .fontWeight(.bold)
+                        .foregroundColor(.primary)
+                }
+            }
         }
         .padding(.bottom, 20)
+        .alert("Scene Limit Reached", isPresented: $showingLimitAlert) {
+            Button("Upgrade to Premium") {
+                showingSettings = true
+            }
+            Button("Cancel", role: .cancel) { }
+        } message: {
+            Text("You've reached the limit of 3 free dialog scenes. Upgrade to premium for unlimited scenes!")
+        }
     }
     
     // MARK: - Sessions List View

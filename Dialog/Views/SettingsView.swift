@@ -4,6 +4,7 @@ import SwiftUI
 struct SettingsView: View {
     @StateObject private var settingsManager = SettingsManager.shared
     @StateObject private var localizationManager = LocalizationManager.shared
+    @StateObject private var purchaseManager = InAppPurchaseManager.shared
     @Environment(\.dismiss) private var dismiss
     @Environment(\.openURL) private var openURL
     
@@ -37,6 +38,20 @@ struct SettingsView: View {
                 Text("Language".localized)
                     .font(.footnote)
                     .fontWeight(.medium)
+                    .foregroundColor(.secondary)
+            }
+            
+            // Premium Section
+            Section {
+                premiumRow
+            } header: {
+                Text("Premium Features".localized)
+                    .font(.footnote)
+                    .fontWeight(.medium)
+                    .foregroundColor(.secondary)
+            } footer: {
+                Text("Unlock unlimited dialog scenes and support the development of this app.".localized)
+                    .font(.caption)
                     .foregroundColor(.secondary)
             }
             
@@ -148,6 +163,111 @@ struct SettingsView: View {
             .toggleStyle(SwitchToggleStyle(tint: .accentColor))
         }
         .padding(.vertical, 4)
+    }
+    
+    // MARK: - Premium Row
+    private var premiumRow: some View {
+        VStack(spacing: 12) {
+            if purchaseManager.hasUnlimitedScenes {
+                // Already purchased
+                HStack {
+                    Image(systemName: "checkmark.circle.fill")
+                        .foregroundColor(.green)
+                        .font(.title2)
+                    
+                    VStack(alignment: .leading, spacing: 2) {
+                        Text("Premium Unlocked".localized)
+                            .font(.body)
+                            .fontWeight(.medium)
+                        
+                        Text("You have unlimited dialog scenes".localized)
+                            .font(.caption)
+                            .foregroundColor(.secondary)
+                    }
+                    
+                    Spacer()
+                }
+                .padding(.vertical, 4)
+                
+                // Restore button for troubleshooting
+                Button("Restore Purchases".localized) {
+                    Task {
+                        await purchaseManager.restorePurchases()
+                    }
+                }
+                .font(.caption)
+                .foregroundColor(.blue)
+                .disabled(purchaseManager.isLoading)
+                
+            } else {
+                // Purchase button
+                VStack(spacing: 8) {
+                    HStack {
+                        VStack(alignment: .leading, spacing: 2) {
+                            Text("Unlimited Dialog Scenes".localized)
+                                .font(.body)
+                                .fontWeight(.medium)
+                            
+                            Text("Currently: 3 free scenes".localized)
+                                .font(.caption)
+                                .foregroundColor(.secondary)
+                        }
+                        
+                        Spacer()
+                        
+                        Text("€1.99")
+                            .font(.title2)
+                            .fontWeight(.bold)
+                            .foregroundColor(.accentColor)
+                    }
+                    
+                    Button {
+                        Task {
+                            await purchaseManager.purchase()
+                        }
+                    } label: {
+                        HStack {
+                            if purchaseManager.isLoading {
+                                ProgressView()
+                                    .scaleEffect(0.8)
+                                    .tint(.white)
+                            } else {
+                                Image(systemName: "crown.fill")
+                                    .font(.caption)
+                            }
+                            
+                            Text(purchaseManager.isLoading ? "Processing...".localized : "Unlock Premium".localized)
+                                .fontWeight(.semibold)
+                        }
+                        .frame(maxWidth: .infinity)
+                        .padding(.vertical, 10)
+                        .background(Color.accentColor)
+                        .foregroundColor(.white)
+                        .clipShape(RoundedRectangle(cornerRadius: 8))
+                    }
+                    .disabled(purchaseManager.isLoading)
+                    
+                    // Restore purchases button
+                    Button("Restore Purchases".localized) {
+                        Task {
+                            await purchaseManager.restorePurchases()
+                        }
+                    }
+                    .font(.caption)
+                    .foregroundColor(.blue)
+                    .disabled(purchaseManager.isLoading)
+                }
+                .padding(.vertical, 4)
+            }
+            
+            // Show error if any
+            if let error = purchaseManager.purchaseError {
+                Text(error)
+                    .font(.caption)
+                    .foregroundColor(.red)
+                    .multilineTextAlignment(.center)
+            }
+        }
     }
     
     // MARK: - App Version Row

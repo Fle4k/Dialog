@@ -12,12 +12,14 @@ struct DialogApp: App {
     @StateObject private var settingsManager = SettingsManager.shared
     @StateObject private var localizationManager = LocalizationManager.shared
     @StateObject private var mainMenuViewModel = MainMenuViewModel()
+    @StateObject private var purchaseManager = InAppPurchaseManager.shared
     
     var body: some Scene {
         WindowGroup {
             MainMenuView()
                 .environmentObject(localizationManager)
                 .environmentObject(mainMenuViewModel)
+                .environmentObject(purchaseManager)
                 .overlay(
                     // Add smooth transition overlay for language changes
                     Group {
@@ -40,6 +42,10 @@ struct DialogApp: App {
                 .onReceive(NotificationCenter.default.publisher(for: UIApplication.willTerminateNotification)) { _ in
                     // Save any current dialog state when app is terminated
                     saveCurrentDialogState()
+                }
+                .task {
+                    // Initialize in-app purchases
+                    await purchaseManager.requestProducts()
                 }
         }
     }
