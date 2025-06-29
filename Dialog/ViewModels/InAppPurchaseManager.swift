@@ -62,7 +62,7 @@ final class InAppPurchaseManager: ObservableObject {
     
     func requestProducts() async {
         do {
-            let products = try await Product.products(for: [unlimitedScenesProductID])
+            let _ = try await Product.products(for: [unlimitedScenesProductID])
             // Products loaded successfully
         } catch {
             purchaseError = "Failed to load products: \(error.localizedDescription)"

@@ -186,6 +186,10 @@ struct DialogSceneView: View {
     // Menu animation state
     @State private var centerLinesJustTapped = false
     
+    // Track if this is a new session and if it's been saved already
+    @State private var isNewSession: Bool = true
+    @State private var hasBeenSavedOnce: Bool = false
+    
     let onSave: ((DialogViewModel) -> Void)?
     let existingSession: DialogSession?
     let toolbarTransition: Namespace.ID?
@@ -244,6 +248,7 @@ struct DialogSceneView: View {
                     }) {
                         Text(settingsManager.centerLinesEnabled ? "Dialog Left/Right".localized : "Center Dialog Lines".localized)
                     }
+                    .disabled(viewModel.hasMoreThanTwoSpeakers())
                     
                     Divider()
                     
@@ -318,9 +323,9 @@ struct DialogSceneView: View {
         } message: {
             Text("Enter a new name for this dialog".localized)
         }
-        .alert("Rename Speaker".localized, isPresented: .constant(viewModel.speakerToRenameFromDialog != nil)) {
-            TextField("Speaker name".localized, text: $newSpeakerName)
-            Button("Cancel".localized, role: .cancel) { 
+                .alert("Rename Character".localized, isPresented: .constant(viewModel.speakerToRenameFromDialog != nil)) {
+            TextField("Character name".localized, text: $newSpeakerName)
+            Button("Cancel".localized, role: .cancel) {
                 viewModel.speakerToRenameFromDialog = nil
                 newSpeakerName = ""
             }
@@ -331,8 +336,6 @@ struct DialogSceneView: View {
                 viewModel.speakerToRenameFromDialog = nil
                 newSpeakerName = ""
             }
-        } message: {
-            Text("Enter a custom name for this speaker".localized)
         }
         .onChange(of: viewModel.speakerToRenameFromDialog) { _, speaker in
             if let speaker = speaker {
@@ -344,8 +347,12 @@ struct DialogSceneView: View {
         .onAppear {
             if let session = existingSession {
                 viewModel.initializeForExistingSession(session)
+                isNewSession = false
+                hasBeenSavedOnce = true // Existing sessions are already saved
             } else {
                 viewModel.initializeForNewSession()
+                isNewSession = true
+                hasBeenSavedOnce = false
                 
                 // Restore any unsaved input text from previous session
                 restoreInputTextFromUserDefaults()
@@ -474,7 +481,7 @@ struct DialogSceneView: View {
             GroupedElementRowView(
                 groupedElement: groupedElement,
                 customSpeakerNames: viewModel.customSpeakerNames,
-                centerLines: settingsManager.centerLinesEnabled,
+                centerLines: settingsManager.centerLinesEnabled || viewModel.hasMoreThanTwoSpeakers(),
                 viewModel: viewModel,
                 shouldShowSpeakerName: shouldShowSpeakerName(for: index),
                 shouldShowContd: shouldShowContd(for: index),
@@ -647,7 +654,8 @@ struct DialogSceneView: View {
                     onSubmit: viewModel.addText,
                     isEditing: viewModel.isEditingText,
                     selectedSpeaker: viewModel.selectedSpeaker,
-                    selectedElementType: viewModel.selectedElementType
+                    selectedElementType: viewModel.selectedElementType,
+                    customSpeakerNames: viewModel.customSpeakerNames
                 )
                 
                 // Cancel button removed - tapping above input field will be the cancel behavior
@@ -694,7 +702,16 @@ struct DialogSceneView: View {
     private func saveCurrentState() {
         // Only save if there's meaningful content
         if !viewModel.screenplayElements.isEmpty || !viewModel.inputText.isEmpty {
-            onSave?(viewModel)
+            // For new sessions, only save once to prevent duplicates
+            if isNewSession {
+                if !hasBeenSavedOnce {
+                    onSave?(viewModel)
+                    hasBeenSavedOnce = true
+                }
+            } else {
+                // For existing sessions, always save (updates)
+                onSave?(viewModel)
+            }
             
             // Also save to UserDefaults as backup
             saveStateToUserDefaults()
@@ -1223,59 +1240,143 @@ struct SpeakerSelectorView: View {
     
     var body: some View {
         HStack(spacing: 12) {
-            ForEach(Speaker.allCases, id: \.self) { speaker in
-                HStack {
-                    if speaker == .a {
-                        // A speaker - align text to the left
-                        Text(speaker.displayName(customNames: viewModel.customSpeakerNames))
-                            .font(.headline)
-                            .fontWeight(.black)
-                            .foregroundColor(isDisabled ? Color(.systemGray4) : (selectedSpeaker == speaker ? .primary : Color(.systemGray4)))
-                        Spacer()
-                    } else {
-                        // B speaker - align text to the right
-                        Spacer()
-                        Text(speaker.displayName(customNames: viewModel.customSpeakerNames))
-                            .font(.headline)
-                            .fontWeight(.black)
-                            .foregroundColor(isDisabled ? Color(.systemGray4) : (selectedSpeaker == speaker ? .primary : Color(.systemGray4)))
-                    }
+            if viewModel.hasMoreThanTwoSpeakers() {
+                // Multiple speakers layout - all centered
+                ForEach(viewModel.getAvailableSpeakers(), id: \.self) { speaker in
+                    speakerButton(for: speaker)
                 }
-                .frame(maxWidth: .infinity)
-                .frame(height: 32)
-                .contentShape(Rectangle())
-                .opacity(isDisabled ? 0.5 : (isEditingMode ? (selectedSpeaker == speaker ? 1.0 : 0.7) : 1.0))
-                .onTapGesture {
-                    guard !isDisabled else { return }
-                    if isEditingMode {
-                        // In edit mode, temporarily change the selected speaker
-                        viewModel.setTemporarySpeaker(speaker)
-                    } else {
-                        // In normal mode, just select the speaker for new text
-                        selectedSpeaker = speaker
-                    }
+                
+                // Add "+" button if we can add more speakers (max 4) and not in edit mode
+                if !isEditingMode && viewModel.maxSpeakerInUse != .d {
+                    plusButton
                 }
-                .simultaneousGesture(
-                    LongPressGesture(minimumDuration: 0.5)
-                        .onEnded { _ in
-                            guard !isDisabled else { return }
-                            speakerToRename = speaker
-                            newSpeakerName = viewModel.customSpeakerNames[speaker] ?? ""
-                            showingRenameAlert = true
-                        }
-                )
+            } else {
+                // A/B layout with + in the middle
+                if let speakerA = viewModel.getAvailableSpeakers().first {
+                    speakerButton(for: speakerA)
+                }
+                
+                // Add "+" button if we can add more speakers (max 4) and not in edit mode
+                if !isEditingMode && viewModel.maxSpeakerInUse != .d {
+                    plusButton
+                }
+                
+                if let speakerB = viewModel.getAvailableSpeakers().last, viewModel.getAvailableSpeakers().count > 1 {
+                    speakerButton(for: speakerB)
+                }
             }
         }
-        .alert("Rename Speaker".localized, isPresented: $showingRenameAlert) {
-            TextField("Speaker name".localized, text: $newSpeakerName)
+        .alert("Character Options".localized, isPresented: $showingRenameAlert) {
+            TextField("Character name".localized, text: $newSpeakerName)
             Button("Cancel".localized, role: .cancel) { }
             Button("Save".localized) {
                 if let speaker = speakerToRename {
                     viewModel.renameSpeaker(speaker, to: newSpeakerName)
                 }
             }
-        } message: {
-            Text("Enter a custom name for this speaker".localized)
+            
+            // Show remove option if speaker can be removed (maintaining minimum 2 speakers)
+            if let speaker = speakerToRename, viewModel.canRemoveSpeaker(speaker) {
+                Button("Remove Character + Lines".localized, role: .destructive) {
+                    viewModel.removeSpeaker(speaker)
+                    
+                    // If we were on the removed speaker, switch to the first available speaker
+                    if selectedSpeaker == speaker {
+                        selectedSpeaker = viewModel.getAvailableSpeakers().first ?? .a
+                    }
+                }
+            }
+        }
+    }
+    
+    @ViewBuilder
+    private func speakerButton(for speaker: Speaker) -> some View {
+        HStack {
+            if viewModel.hasMoreThanTwoSpeakers() {
+                // Center alignment for multiple speakers
+                Text(speaker.displayName(customNames: viewModel.customSpeakerNames))
+                    .font(.headline)
+                    .fontWeight(.medium)
+                    .foregroundColor(isDisabled ? Color(.systemGray4) : (selectedSpeaker == speaker ? .primary : Color(.systemGray4)))
+                    .frame(maxWidth: .infinity)
+            } else if speaker == .a {
+                // Left alignment for Speaker A in A/B layout (matches dialog scene)
+                Text(speaker.displayName(customNames: viewModel.customSpeakerNames))
+                    .font(.headline)
+                    .fontWeight(.black)
+                    .foregroundColor(isDisabled ? Color(.systemGray4) : (selectedSpeaker == speaker ? .primary : Color(.systemGray4)))
+                Spacer()
+            } else if speaker == .b {
+                // Right alignment for Speaker B in A/B layout (matches dialog scene)
+                Spacer()
+                Text(speaker.displayName(customNames: viewModel.customSpeakerNames))
+                    .font(.headline)
+                    .fontWeight(.black)
+                    .foregroundColor(isDisabled ? Color(.systemGray4) : (selectedSpeaker == speaker ? .primary : Color(.systemGray4)))
+            } else {
+                // Center alignment for other speakers
+                Text(speaker.displayName(customNames: viewModel.customSpeakerNames))
+                    .font(.headline)
+                    .fontWeight(.medium)
+                    .foregroundColor(isDisabled ? Color(.systemGray4) : (selectedSpeaker == speaker ? .primary : Color(.systemGray4)))
+                    .frame(maxWidth: .infinity)
+            }
+        }
+        .frame(maxWidth: .infinity)
+        .frame(height: 32)
+        .contentShape(Rectangle())
+        .opacity(isDisabled ? 0.5 : (isEditingMode ? (selectedSpeaker == speaker ? 1.0 : 0.7) : 1.0))
+        .onTapGesture {
+            guard !isDisabled else { return }
+            if isEditingMode {
+                // In edit mode, temporarily change the selected speaker
+                viewModel.setTemporarySpeaker(speaker)
+            } else {
+                // In normal mode, just select the speaker for new text
+                selectedSpeaker = speaker
+            }
+        }
+        .simultaneousGesture(
+            LongPressGesture(minimumDuration: 0.5)
+                .onEnded { _ in
+                    guard !isDisabled else { return }
+                    speakerToRename = speaker
+                    newSpeakerName = viewModel.customSpeakerNames[speaker] ?? ""
+                    showingRenameAlert = true
+                }
+        )
+    }
+
+    
+    private var plusButton: some View {
+        HStack {
+            if viewModel.hasMoreThanTwoSpeakers() {
+                Text("+")
+                    .font(.headline)
+                    .fontWeight(.black)
+                    .foregroundColor(isDisabled ? Color(.systemGray4) : Color(.systemGray4))
+                    .frame(maxWidth: .infinity)
+            } else {
+                // For A/B layout, put the + between them
+                Text("+")
+                    .font(.headline)
+                    .fontWeight(.black)
+                    .foregroundColor(isDisabled ? Color(.systemGray4) : Color(.systemGray4))
+            }
+        }
+        .frame(maxWidth: viewModel.hasMoreThanTwoSpeakers() ? .infinity : nil)
+        .frame(height: 32)
+        .contentShape(Rectangle())
+        .opacity(isDisabled ? 0.5 : 1.0)
+        .onTapGesture {
+            guard !isDisabled else { return }
+            if let newSpeaker = viewModel.addNewSpeaker() {
+                selectedSpeaker = newSpeaker
+                
+                // Provide haptic feedback
+                let impactFeedback = UIImpactFeedbackGenerator(style: .light)
+                impactFeedback.impactOccurred()
+            }
         }
     }
 }

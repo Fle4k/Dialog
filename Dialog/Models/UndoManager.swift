@@ -14,6 +14,7 @@ enum UndoAction {
     case deleteScreenplayElement(ScreenplayElement, Int) // element and its original index
     case editScreenplayElement(id: UUID, oldContent: String, newContent: String, oldSpeaker: Speaker?, newSpeaker: Speaker?)
     case changeElementType(id: UUID, oldType: ScreenplayElementType, newType: ScreenplayElementType) // Add proper element type change tracking
+    case removeSpeaker(speaker: Speaker, oldActiveSpeakers: [Speaker], oldMaxSpeakerInUse: Speaker, oldCustomName: String?, removedElements: [(Int, ScreenplayElement)], removedTextlines: [(Int, SpeakerText)])
 }
 
 // MARK: - Undo Manager
@@ -51,8 +52,8 @@ class AppUndoManager: ObservableObject {
                 return "Edit Text".localized
             case .toggleFlag(_, let wasAdd):
                 return wasAdd ? "Flag Text".localized : "Unflag Text".localized
-            case .renameSpeaker(_, _, _):
-                return "Rename Speaker".localized
+                    case .renameSpeaker(_, _, _):
+            return "Rename Character".localized
             case .deleteSession(_, _):
                 return "Delete Dialog".localized
             case .renameSession(_, _, _):
@@ -65,6 +66,8 @@ class AppUndoManager: ObservableObject {
                 return "Edit Element".localized
             case .changeElementType(_, _, _):
                 return "Change Type".localized
+                    case .removeSpeaker(_, _, _, _, _, _):
+            return "Remove Character".localized
             }
         } else {
             return ""
@@ -127,6 +130,9 @@ class AppUndoManager: ObservableObject {
             
         case .changeElementType(let id, let oldType, let newType):
             dialogViewModel?.undoChangeElementType(id: id, oldType: oldType, newType: newType)
+            
+        case .removeSpeaker(let speaker, let oldActiveSpeakers, let oldMaxSpeakerInUse, let oldCustomName, let removedElements, let removedTextlines):
+            dialogViewModel?.undoRemoveSpeaker(speaker: speaker, oldActiveSpeakers: oldActiveSpeakers, oldMaxSpeakerInUse: oldMaxSpeakerInUse, oldCustomName: oldCustomName, removedElements: removedElements, removedTextlines: removedTextlines)
         }
         
         objectWillChange.send()
@@ -183,6 +189,9 @@ class AppUndoManager: ObservableObject {
             
         case .changeElementType(let id, let oldType, let newType):
             dialogViewModel?.redoChangeElementType(id: id, oldType: oldType, newType: newType)
+            
+        case .removeSpeaker(let speaker, _, _, _, _, _):
+            dialogViewModel?.removeSpeaker(speaker)
         }
         
         objectWillChange.send()

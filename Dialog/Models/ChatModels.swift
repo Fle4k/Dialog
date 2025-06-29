@@ -107,9 +107,15 @@ struct SpeakerText: Identifiable, Hashable, Codable {
 }
 
 // MARK: - Speaker Model
-enum Speaker: String, CaseIterable, Codable {
+enum Speaker: String, CaseIterable, Codable, Comparable {
     case a = "A"
     case b = "B"
+    case c = "C"
+    case d = "D"
+    case e = "E"
+    case f = "F"
+    case g = "G"
+    case h = "H"
     
     func displayName(customNames: [Speaker: String]) -> String {
         if let customName = customNames[self], !customName.isEmpty {
@@ -120,5 +126,30 @@ enum Speaker: String, CaseIterable, Codable {
     
     mutating func toggle() {
         self = self == .a ? .b : .a
+    }
+    
+    // Get the next speaker in sequence
+    static func next(after speaker: Speaker) -> Speaker? {
+        let allCases = Speaker.allCases
+        guard let currentIndex = allCases.firstIndex(of: speaker),
+              currentIndex + 1 < allCases.count else { return nil }
+        return allCases[currentIndex + 1]
+    }
+    
+    // Get all speakers up to and including the given speaker
+    static func speakers(upTo maxSpeaker: Speaker) -> [Speaker] {
+        let allCases = Speaker.allCases
+        guard let maxIndex = allCases.firstIndex(of: maxSpeaker) else { return [.a, .b] }
+        return Array(allCases[0...maxIndex])
+    }
+    
+    // Check if this is the highest speaker in use
+    func isHighest(in speakers: [Speaker]) -> Bool {
+        return speakers.max() == self
+    }
+    
+    // Comparable conformance - compare based on alphabetical order
+    static func < (lhs: Speaker, rhs: Speaker) -> Bool {
+        return lhs.rawValue < rhs.rawValue
     }
 } 

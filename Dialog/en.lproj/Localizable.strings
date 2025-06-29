@@ -48,8 +48,8 @@
 "Edit off screen dialog..." = "Edit off screen dialog...";
 "Edit voice over..." = "Edit voice over...";
 "Edit text dialog..." = "Edit text dialog...";
-"Speaker name" = "Speaker name";
-"Enter a custom name for this speaker" = "Enter a custom name for this speaker";
+"Character name" = "Character name";
+"Enter a custom name for this character" = "Enter a custom name for this character";
 "Edit Element" = "Edit Element";
 "New Screenplay" = "New Screenplay";
 "Character Creator" = "Character Creator";
@@ -69,6 +69,8 @@
 "Remove V.O." = "Remove V.O.";
 "Remove Text" = "Remove Text";
 "Remove" = "Remove";
+"Character Options" = "Character Options";
+"Remove Character + Lines" = "Remove Character + Lines";
 
 // Premium Features
 "Premium Features" = "Premium Features";

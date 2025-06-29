@@ -73,6 +73,8 @@
 "Remove V.O." = "Supprimer V.O.";
 "Remove Text" = "Supprimer Texte";
 "Remove" = "Supprimer";
+"Speaker Options" = "Options de Personnage";
+"Remove Character + Lines" = "Supprimer Personnage + Lignes";
 "Predictive" = "Prédictif";
 "Enable predictive text suggestions while typing" = "Activer les suggestions de texte prédictif lors de la saisie - moins d'espace";
 "Export as .fdx" = "Exporter en .fdx";

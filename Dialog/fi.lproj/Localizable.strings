@@ -78,4 +78,6 @@
 "Export as .fdx" = "Vie .fdx-muodossa";
 "Export as .pdf" = "Vie .pdf-muodossa";
 "Export as .rtf" = "Vie .rtf-muodossa";
-"Export as .txt" = "Vie .txt-muodossa"; 
+"Export as .txt" = "Vie .txt-muodossa";
+"Speaker Options" = "Hahmo-asetukset";
+"Remove Character + Lines" = "Poista Hahmo + Rivit"; 

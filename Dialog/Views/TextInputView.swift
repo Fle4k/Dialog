@@ -7,6 +7,7 @@ struct TextInputView: View {
     let isEditing: Bool
     let selectedSpeaker: Speaker
     let selectedElementType: ScreenplayElementType
+    let customSpeakerNames: [Speaker: String]
     
     @StateObject private var settingsManager = SettingsManager.shared
     @StateObject private var localizationManager = LocalizationManager.shared
@@ -17,17 +18,17 @@ struct TextInputView: View {
         } else {
             switch selectedElementType {
             case .dialogue:
-                return String(format: NSLocalizedString("%@ says...", comment: "Placeholder for dialogue"), selectedSpeaker.displayName(customNames: [:]))
+                return String(format: NSLocalizedString("%@ says...", comment: "Placeholder for dialogue"), selectedSpeaker.displayName(customNames: customSpeakerNames))
             case .parenthetical:
                 return NSLocalizedString("Add parenthetical...", comment: "Placeholder for parenthetical")
             case .action:
                 return NSLocalizedString("Describe action...", comment: "Placeholder for action")
             case .offScreen:
-                return String(format: NSLocalizedString("%@ (off screen)...", comment: "Placeholder for off screen"), selectedSpeaker.displayName(customNames: [:]))
+                return String(format: NSLocalizedString("%@ (off screen)...", comment: "Placeholder for off screen"), selectedSpeaker.displayName(customNames: customSpeakerNames))
             case .voiceOver:
-                return String(format: NSLocalizedString("%@ (voice over)...", comment: "Placeholder for voice over"), selectedSpeaker.displayName(customNames: [:]))
+                return String(format: NSLocalizedString("%@ (voice over)...", comment: "Placeholder for voice over"), selectedSpeaker.displayName(customNames: customSpeakerNames))
             case .text:
-                return String(format: NSLocalizedString("%@ (text)...", comment: "Placeholder for text"), selectedSpeaker.displayName(customNames: [:]))
+                return String(format: NSLocalizedString("%@ (text)...", comment: "Placeholder for text"), selectedSpeaker.displayName(customNames: customSpeakerNames))
             }
         }
     }

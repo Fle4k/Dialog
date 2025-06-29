@@ -16,6 +16,10 @@ final class DialogViewModel: ObservableObject {
     @Published var customSpeakerNames: [Speaker: String] = [:]
     @Published var flaggedTextIds: Set<UUID> = []
     
+    // MARK: - Speaker Management
+    @Published var activeSpeakers: [Speaker] = [.a, .b] // Speakers currently in use
+    @Published var maxSpeakerInUse: Speaker = .b // Highest speaker currently in use
+    
     // MARK: - Edit Mode Properties
     @Published var isEditingText: Bool = false
     @Published var isEditingElementType: Bool = false
@@ -38,12 +42,14 @@ final class DialogViewModel: ObservableObject {
         // Start in writing mode for immediate dialog writing
         isFullscreenMode = false
         updateGroupedElements()
+        updateActiveSpeakersFromElements()
         showInputAreaWithFocus()
     }
     
     func initializeForExistingSession(_ session: DialogSession) {
         currentTitle = session.title
         loadSession(session)
+        updateActiveSpeakersFromElements()
         
         if !session.textlines.isEmpty {
             enterFullscreenMode()
@@ -331,12 +337,14 @@ final class DialogViewModel: ObservableObject {
             screenplayElements.insert(element, at: insertAtIndex)
             print("🎭 addScreenplayElement: Inserted element at position \(insertAtIndex)")
             updateGroupedElements()
+            updateActiveSpeakersFromElements()
             // Clear insertion position after use
             insertionPosition = nil
         } else {
             screenplayElements.append(element)
             print("🎭 addScreenplayElement: Appended element to end")
             updateGroupedElements()
+            updateActiveSpeakersFromElements()
         }
         
         // Also add to legacy textlines for compatibility (and undo support)
@@ -370,9 +378,9 @@ final class DialogViewModel: ObservableObject {
                 // Don't toggle speaker - this is continuation of the same speaker's dialogue after parenthetical
                 print("🔄 After dialogue (following parenthetical): keeping speaker as \(selectedSpeaker)")
             } else {
-                // Normal dialogue flow - toggle to other speaker
-                selectedSpeaker.toggle()
-                print("🔄 After dialogue: toggled speaker to \(selectedSpeaker)")
+                // Normal dialogue flow - move to next speaker
+                selectedSpeaker = getNextSpeaker(after: selectedSpeaker)
+                print("🔄 After dialogue: moved to next speaker \(selectedSpeaker)")
             }
             
         case .parenthetical:
@@ -383,15 +391,15 @@ final class DialogViewModel: ObservableObject {
         case .action:
             // After action, go back to normal dialogue flow with next speaker
             selectedElementType = .dialogue
-            selectedSpeaker.toggle()
-            print("🔄 After action: toggled speaker to \(selectedSpeaker), elementType now \(selectedElementType)")
+            selectedSpeaker = getNextSpeaker(after: selectedSpeaker)
+            print("🔄 After action: moved to next speaker \(selectedSpeaker), elementType now \(selectedElementType)")
             
         case .offScreen, .voiceOver, .text:
-            // These are dialogue variants - always toggle to other speaker after adding
+            // These are dialogue variants - always move to next speaker after adding
             let originalType = selectedElementType
             selectedElementType = .dialogue
-            selectedSpeaker.toggle()
-            print("🔄 After \(originalType): reset to dialogue, toggled speaker to \(selectedSpeaker)")
+            selectedSpeaker = getNextSpeaker(after: selectedSpeaker)
+            print("🔄 After \(originalType): reset to dialogue, moved to next speaker \(selectedSpeaker)")
         }
     }
     
@@ -598,6 +606,7 @@ final class DialogViewModel: ObservableObject {
         inputText = ""
         setNextSpeakerBasedOnLastText()
         updateGroupedElements()
+        updateActiveSpeakersFromElements()
     }
     
     // MARK: - Speaker Management
@@ -605,12 +614,125 @@ final class DialogViewModel: ObservableObject {
         // Look for the last dialogue-like element (dialogue, off screen, voice over, text) to determine next speaker
         if let lastDialogue = screenplayElements.last(where: { $0.type.requiresSpeaker && $0.type != .parenthetical }),
            let speaker = lastDialogue.speaker {
-            // Set the speaker to the opposite of the last dialogue's speaker
-            selectedSpeaker = speaker == .a ? .b : .a
+            // Set the speaker to the next available speaker in sequence
+            let nextSpeaker = getNextSpeaker(after: speaker)
+            selectedSpeaker = nextSpeaker
         } else {
             // If no dialogue elements exist, default to speaker A
             selectedSpeaker = .a
         }
+    }
+    
+    func getNextSpeaker(after speaker: Speaker) -> Speaker {
+        let speakerIndex = activeSpeakers.firstIndex(of: speaker) ?? 0
+        let nextIndex = (speakerIndex + 1) % activeSpeakers.count
+        return activeSpeakers[nextIndex]
+    }
+    
+    func addNewSpeaker() -> Speaker? {
+        guard let nextSpeaker = Speaker.next(after: maxSpeakerInUse) else { return nil }
+        
+        // Add the new speaker to active speakers
+        activeSpeakers.append(nextSpeaker)
+        maxSpeakerInUse = nextSpeaker
+        
+        // Update grouped elements to reflect the new speaker configuration
+        updateGroupedElements()
+        
+        return nextSpeaker
+    }
+    
+    func removeSpeaker(_ speakerToRemove: Speaker) {
+        // Must maintain at least 2 speakers
+        guard activeSpeakers.count > 2 else { return }
+        
+        // Store undo information before making changes
+        let oldActiveSpeakers = activeSpeakers
+        let oldMaxSpeakerInUse = maxSpeakerInUse
+        let oldCustomSpeakerName = customSpeakerNames[speakerToRemove]
+        
+        // Find all elements that use this speaker and collect them for removal
+        var elementsToRemove: [ScreenplayElement] = []
+        var removedElementIndices: [(Int, ScreenplayElement)] = []
+        
+        // Collect elements to remove (in reverse order to preserve indices)
+        for (index, element) in screenplayElements.enumerated().reversed() {
+            if element.speaker == speakerToRemove {
+                elementsToRemove.append(element)
+                removedElementIndices.append((index, element))
+                // Remove the element
+                screenplayElements.remove(at: index)
+            }
+        }
+        
+        // Also remove from legacy textlines
+        var removedTextlines: [(Int, SpeakerText)] = []
+        for (index, textline) in textlines.enumerated().reversed() {
+            if textline.speaker == speakerToRemove {
+                removedTextlines.append((index, textline))
+                textlines.remove(at: index)
+            }
+        }
+        
+        // Remove the speaker from active speakers
+        activeSpeakers.removeAll { $0 == speakerToRemove }
+        
+        // Update maxSpeakerInUse to the highest remaining active speaker
+        maxSpeakerInUse = activeSpeakers.max() ?? .a
+        
+        // Remove custom name for the removed speaker
+        customSpeakerNames.removeValue(forKey: speakerToRemove)
+        
+        // Update grouped elements to reflect the change
+        updateGroupedElements()
+        
+        // Add undo action
+        undoManager.recordAction(.removeSpeaker(
+            speaker: speakerToRemove,
+            oldActiveSpeakers: oldActiveSpeakers,
+            oldMaxSpeakerInUse: oldMaxSpeakerInUse,
+            oldCustomName: oldCustomSpeakerName,
+            removedElements: removedElementIndices,
+            removedTextlines: removedTextlines
+        ))
+    }
+    
+    func canRemoveSpeaker(_ speaker: Speaker) -> Bool {
+        // Allow removing any speaker as long as we maintain at least 2 speakers
+        return activeSpeakers.count > 2
+    }
+    
+    func getAvailableSpeakers() -> [Speaker] {
+        return activeSpeakers
+    }
+    
+    func hasMoreThanTwoSpeakers() -> Bool {
+        return activeSpeakers.count > 2
+    }
+    
+    func updateActiveSpeakersFromElements() {
+        // Find all speakers actually used in the dialogue
+        let usedSpeakers = Set(screenplayElements.compactMap { $0.speaker })
+        
+        // Update active speakers to include all used speakers
+        var newActiveSpeakers: [Speaker] = []
+        
+        // Always include A and B as baseline
+        newActiveSpeakers.append(.a)
+        newActiveSpeakers.append(.b)
+        
+        // Add any additional speakers that are used
+        for speaker in Speaker.allCases {
+            if usedSpeakers.contains(speaker) && !newActiveSpeakers.contains(speaker) {
+                newActiveSpeakers.append(speaker)
+            }
+        }
+        
+        // Sort speakers to maintain consistent order
+        newActiveSpeakers.sort { $0.rawValue < $1.rawValue }
+        
+        activeSpeakers = newActiveSpeakers
+        maxSpeakerInUse = activeSpeakers.last ?? .b
     }
     
     // MARK: - Export Methods
@@ -1136,6 +1258,40 @@ final class DialogViewModel: ObservableObject {
     
     func undoRenameSpeaker(_ speaker: Speaker, oldName: String?) {
         customSpeakerNames[speaker] = oldName
+    }
+    
+    func undoRemoveSpeaker(speaker: Speaker, oldActiveSpeakers: [Speaker], oldMaxSpeakerInUse: Speaker, oldCustomName: String?, removedElements: [(Int, ScreenplayElement)], removedTextlines: [(Int, SpeakerText)]) {
+        // Restore the speaker's custom name if it had one
+        if let customName = oldCustomName {
+            customSpeakerNames[speaker] = customName
+        }
+        
+        // Restore all removed screenplay elements (in order of original indices)
+        for (originalIndex, element) in removedElements.sorted(by: { $0.0 < $1.0 }) {
+            if originalIndex <= screenplayElements.count {
+                screenplayElements.insert(element, at: originalIndex)
+            } else {
+                screenplayElements.append(element)
+            }
+        }
+        
+        // Restore all removed textlines (in order of original indices)
+        for (originalIndex, textline) in removedTextlines.sorted(by: { $0.0 < $1.0 }) {
+            if originalIndex <= textlines.count {
+                textlines.insert(textline, at: originalIndex)
+            } else {
+                textlines.append(textline)
+            }
+        }
+        
+        // Restore the active speakers and max speaker in use
+        activeSpeakers = oldActiveSpeakers
+        maxSpeakerInUse = oldMaxSpeakerInUse
+        
+        // Update grouped elements to reflect the restoration
+        updateGroupedElements()
+        
+        // The redo action is handled automatically by the custom undo system
     }
     
     // MARK: - Redo Methods
