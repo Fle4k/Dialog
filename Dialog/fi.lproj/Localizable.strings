@@ -80,4 +80,18 @@
 "Export as .rtf" = "Vie .rtf-muodossa";
 "Export as .txt" = "Vie .txt-muodossa"; 
 "Speaker Options" = "Hahmo-asetukset";
-"Remove Character + Lines" = "Poista Hahmo + Rivit"; 
+"Remove Character + Lines" = "Poista Hahmo + Rivit";
+
+// Premium Features
+"Premium Features" = "Premium-ominaisuudet";
+"Unlock unlimited dialog scenes and support the development of this app." = "Avaa rajoittamattomat dialogikohtaukset ja tue tämän sovelluksen kehitystä.";
+"Premium Unlocked" = "Premium Avattu";
+"You have unlimited dialog scenes" = "Sinulla on rajattomasti dialogikohtauksia";
+"Unlimited Dialog Scenes" = "Rajoittamattomat Dialogikohtaukset";
+"Currently: 5 free scenes" = "Tällä hetkellä: 5 ilmaista kohtausta";
+"Add Characters C & D to your scenes" = "Lisää Hahmot C ja D kohtauksiisi";
+"Unlock Premium" = "Avaa Premium";
+"BUY DIALOG PRO +" = "OSTA DIALOG PRO +";
+"Processing..." = "Käsitellään...";
+"Restore Purchases" = "Palauta Ostokset";
+"Help a brother out" = "Auta veljeä"; 

@@ -241,7 +241,7 @@ struct SettingsView: View {
                             
                             HStack(alignment: .top, spacing: 8) {
 
-                                Text("Add up to 4 Characters for the scene".localized)
+                                Text("Add Characters C & D to your scenes".localized)
                                     .font(.footnote)
                                     .fontWeight(.light)
                             }

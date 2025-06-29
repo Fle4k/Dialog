@@ -632,6 +632,12 @@ final class DialogViewModel: ObservableObject {
     func addNewSpeaker() -> Speaker? {
         guard let nextSpeaker = Speaker.next(after: maxSpeakerInUse) else { return nil }
         
+        // Check if adding this speaker requires premium (C and beyond)
+        let isGoingBeyondAB = nextSpeaker.rawValue > "B"
+        if isGoingBeyondAB && !InAppPurchaseManager.shared.canUseAdditionalSpeakers() {
+            return nil  // Premium required for speakers C and D
+        }
+        
         // Add the new speaker to active speakers
         activeSpeakers.append(nextSpeaker)
         maxSpeakerInUse = nextSpeaker
@@ -708,6 +714,12 @@ final class DialogViewModel: ObservableObject {
     
     func hasMoreThanTwoSpeakers() -> Bool {
         return activeSpeakers.count > 2
+    }
+    
+    func canAddMoreSpeakers() -> Bool {
+        guard let nextSpeaker = Speaker.next(after: maxSpeakerInUse) else { return false }
+        let isGoingBeyondAB = nextSpeaker.rawValue > "B"
+        return !isGoingBeyondAB || InAppPurchaseManager.shared.canUseAdditionalSpeakers()
     }
     
     func updateActiveSpeakersFromElements() {

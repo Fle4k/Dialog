@@ -78,4 +78,18 @@
 "Export as .rtf" = "خروجی به صورت .rtf";
 "Export as .txt" = "خروجی به صورت .txt"; 
 "Speaker Options" = "گزینه‌های شخصیت";
-"Remove Character + Lines" = "حذف شخصیت + خطوط"; 
+"Remove Character + Lines" = "حذف شخصیت + خطوط";
+
+// Premium Features
+"Premium Features" = "قابلیت‌های پریمیوم";
+"Unlock unlimited dialog scenes and support the development of this app." = "صحنه‌های گفتگوی نامحدود را باز کنید و از توسعه این اپلیکیشن حمایت کنید.";
+"Premium Unlocked" = "پریمیوم فعال شد";
+"You have unlimited dialog scenes" = "شما صحنه‌های گفتگوی نامحدود دارید";
+"Unlimited Dialog Scenes" = "صحنه‌های گفتگوی نامحدود";
+"Currently: 5 free scenes" = "در حال حاضر: ۵ صحنه رایگان";
+"Add Characters C & D to your scenes" = "شخصیت‌های C و D را به صحنه‌هایتان اضافه کنید";
+"Unlock Premium" = "فعال‌سازی پریمیوم";
+"BUY DIALOG PRO +" = "خرید DIALOG PRO +";
+"Processing..." = "در حال پردازش...";
+"Restore Purchases" = "بازیابی خریدها";
+"Help a brother out" = "به یک برادر کمک کنید"; 

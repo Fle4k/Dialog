@@ -1247,7 +1247,7 @@ struct SpeakerSelectorView: View {
                 }
                 
                 // Add "+" button if we can add more speakers and not in edit mode
-                if !isEditingMode && Speaker.next(after: viewModel.maxSpeakerInUse) != nil {
+                if !isEditingMode && viewModel.canAddMoreSpeakers() {
                     plusButton
                 }
             } else {
@@ -1257,7 +1257,7 @@ struct SpeakerSelectorView: View {
                 }
                 
                 // Add "+" button if we can add more speakers and not in edit mode
-                if !isEditingMode && Speaker.next(after: viewModel.maxSpeakerInUse) != nil {
+                if !isEditingMode && viewModel.canAddMoreSpeakers() {
                     plusButton
                 }
                 

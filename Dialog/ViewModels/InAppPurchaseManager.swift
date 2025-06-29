@@ -7,6 +7,7 @@ final class InAppPurchaseManager: ObservableObject {
     static let shared = InAppPurchaseManager()
     
     @Published var hasUnlimitedScenes: Bool = false
+    @Published var hasAdditionalSpeakers: Bool = false
     @Published var isLoading: Bool = false
     @Published var purchaseError: String?
     
@@ -16,6 +17,7 @@ final class InAppPurchaseManager: ObservableObject {
     private var updateListenerTask: Task<Void, Error>? = nil
     private let userDefaults = UserDefaults.standard
     private let hasUnlimitedScenesKey = "hasUnlimitedScenes"
+    private let hasAdditionalSpeakersKey = "hasAdditionalSpeakers"
     
     init() {
         loadPurchaseStatus()
@@ -29,10 +31,12 @@ final class InAppPurchaseManager: ObservableObject {
     // MARK: - Purchase Status
     private func loadPurchaseStatus() {
         hasUnlimitedScenes = userDefaults.bool(forKey: hasUnlimitedScenesKey)
+        hasAdditionalSpeakers = userDefaults.bool(forKey: hasAdditionalSpeakersKey)
     }
     
     private func savePurchaseStatus() {
         userDefaults.set(hasUnlimitedScenes, forKey: hasUnlimitedScenesKey)
+        userDefaults.set(hasAdditionalSpeakers, forKey: hasAdditionalSpeakersKey)
     }
     
     // MARK: - StoreKit Integration
@@ -137,6 +141,7 @@ final class InAppPurchaseManager: ObservableObject {
     private func updatePurchaseStatus(for transaction: Transaction) async {
         if transaction.productID == unlimitedScenesProductID {
             hasUnlimitedScenes = true
+            hasAdditionalSpeakers = true
             savePurchaseStatus()
         }
     }
@@ -148,6 +153,17 @@ final class InAppPurchaseManager: ObservableObject {
     
     func getRemainingFreeScenes(currentSceneCount: Int) -> Int {
         return hasUnlimitedScenes ? Int.max : max(0, 5 - currentSceneCount)
+    }
+    
+    func canUseAdditionalSpeakers() -> Bool {
+        return hasAdditionalSpeakers
+    }
+    
+    func canAddSpeaker(beyondAB: Bool) -> Bool {
+        if !beyondAB {
+            return true  // A and B are always available
+        }
+        return hasAdditionalSpeakers  // C and D require premium
     }
 }
 

@@ -78,4 +78,18 @@
 "Export as .rtf" = ".rtf로 내보내기";
 "Export as .txt" = ".txt로 내보내기"; 
 "Speaker Options" = "인물 옵션";
-"Remove Character + Lines" = "인물 + 대사 제거"; 
+"Remove Character + Lines" = "인물 + 대사 제거";
+
+// Premium Features
+"Premium Features" = "프리미엄 기능";
+"Unlock unlimited dialog scenes and support the development of this app." = "무제한 대화 장면을 잠금 해제하고 이 앱의 개발을 지원하세요.";
+"Premium Unlocked" = "프리미엄 잠금 해제됨";
+"You have unlimited dialog scenes" = "무제한 대화 장면을 사용할 수 있습니다";
+"Unlimited Dialog Scenes" = "무제한 대화 장면";
+"Currently: 5 free scenes" = "현재: 5개 무료 장면";
+"Add Characters C & D to your scenes" = "장면에 인물 C와 D를 추가하세요";
+"Unlock Premium" = "프리미엄 잠금 해제";
+"BUY DIALOG PRO +" = "DIALOG PRO + 구매";
+"Processing..." = "처리 중...";
+"Restore Purchases" = "구매 복원";
+"Help a brother out" = "형제를 도와주세요"; 
