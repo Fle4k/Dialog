@@ -81,3 +81,16 @@
 "Export as .pdf" = "Exporter en .pdf";
 "Export as .rtf" = "Exporter en .rtf";
 "Export as .txt" = "Exporter en .txt"; 
+
+// Premium Features
+"Premium Features" = "Fonctionnalités Premium";
+"Unlock unlimited dialog scenes and support the development of this app." = "Déverrouillez des scènes de dialogue illimitées et soutenez le développement de cette application.";
+"Premium Unlocked" = "Premium Déverrouillé";
+"You have unlimited dialog scenes" = "Vous avez des scènes de dialogue illimitées";
+"Unlimited Dialog Scenes" = "Scènes de Dialogue Illimitées";
+"Currently: 5 free scenes" = "Actuellement: 5 scènes gratuites";
+"Add up to 4 Characters for the scene" = "Ajouter jusqu'à 4 personnages pour la scène";
+"Unlock Premium" = "Déverrouiller Premium";
+"BUY DIALOG PRO +" = "ACHETER DIALOG PRO +";
+"Processing..." = "Traitement...";
+"Restore Purchases" = "Restaurer les Achats"; 

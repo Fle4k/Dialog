@@ -7,6 +7,10 @@ struct SettingsView: View {
     @StateObject private var purchaseManager = InAppPurchaseManager.shared
     @Environment(\.dismiss) private var dismiss
     @Environment(\.openURL) private var openURL
+    @Environment(\.colorScheme) private var colorScheme
+    
+    // Language transition state
+    @State private var isTransitioning = false
     
     var body: some View {
         NavigationStack {
@@ -23,8 +27,38 @@ struct SettingsView: View {
                     .fontWeight(.semibold)
                 }
             }
+            .overlay(
+                // Fade transition overlay
+                Rectangle()
+                    .fill(colorScheme == .dark ? Color.black : Color.white)
+                    .opacity(isTransitioning ? 1.0 : 0.0)
+                    .animation(.easeInOut(duration: 0.3), value: isTransitioning)
+                    .allowsHitTesting(false)
+            )
         }
         .tint(.primary)
+    }
+    
+    // MARK: - Language Change Method
+    private func performLanguageChange(to language: String) {
+        guard localizationManager.currentLanguage != language else { return }
+        
+        // Start transition
+        withAnimation(.easeInOut(duration: 0.3)) {
+            isTransitioning = true
+        }
+        
+        // After fade in completes, change language and fade out
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) {
+            localizationManager.setLanguage(language)
+            
+            // Fade out after language change
+            DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
+                withAnimation(.easeInOut(duration: 0.3)) {
+                    isTransitioning = false
+                }
+            }
+        }
     }
     
     // MARK: - Settings List
@@ -41,16 +75,6 @@ struct SettingsView: View {
                     .foregroundColor(.secondary)
             }
             
-            // Recommended Apps Section
-            Section {
-                CharacterCreatorRecommendationView()
-            } header: {
-                Text("Recommended App".localized)
-                    .font(.footnote)
-                    .fontWeight(.medium)
-                    .foregroundColor(.secondary)
-            }
-            
             // Premium Section
             Section {
                 premiumRow
@@ -59,9 +83,15 @@ struct SettingsView: View {
                     .font(.footnote)
                     .fontWeight(.medium)
                     .foregroundColor(.secondary)
-            } footer: {
-                Text("Unlock unlimited dialog scenes and support the development of this app.".localized)
-                    .font(.caption)
+            }
+            
+            // Recommended Apps Section
+            Section {
+                CharacterCreatorRecommendationView()
+            } header: {
+                Text("Recommended App".localized)
+                    .font(.footnote)
+                    .fontWeight(.medium)
                     .foregroundColor(.secondary)
             }
 //            footer: {
@@ -113,9 +143,7 @@ struct SettingsView: View {
             Menu {
                 ForEach(localizationManager.supportedLanguages.sorted(by: { $0.value < $1.value }), id: \.key) { language, displayName in
                     Button(action: {
-                        withAnimation(.easeInOut(duration: 0.3)) {
-                            localizationManager.setLanguage(language)
-                        }
+                        performLanguageChange(to: language)
                     }) {
                         HStack {
                             Text(displayName)
@@ -203,14 +231,26 @@ struct SettingsView: View {
                 // Purchase button
                 VStack(spacing: 8) {
                     HStack {
-                        VStack(alignment: .leading, spacing: 2) {
-                            Text("Unlimited Dialog Scenes".localized)
-                                .font(.body)
-                                .fontWeight(.medium)
+                        VStack(alignment: .leading, spacing: 6) {
+                            HStack(alignment: .top, spacing: 8) {
+
+                                Text("Unlimited Dialog Scenes".localized)
+                                    .font(.footnote)
+                                    .fontWeight(.light)
+                            }
                             
-                            Text("Currently: 5 free scenes".localized)
-                                .font(.caption)
-                                .foregroundColor(.secondary)
+                            HStack(alignment: .top, spacing: 8) {
+
+                                Text("Add up to 4 Characters for the scene".localized)
+                                    .font(.footnote)
+                                    .fontWeight(.light)
+                            }
+                            HStack(alignment: .top, spacing: 8) {
+
+                                Text("Help a brother out".localized)
+                                    .font(.footnote)
+                                    .fontWeight(.light)
+                            }
                         }
                         
                         Spacer()
@@ -230,19 +270,20 @@ struct SettingsView: View {
                             if purchaseManager.isLoading {
                                 ProgressView()
                                     .scaleEffect(0.8)
-                                    .tint(.white)
-                            } else {
-                                Image(systemName: "crown.fill")
-                                    .font(.caption)
+                                    .tint(.primary)
                             }
                             
-                            Text(purchaseManager.isLoading ? "Processing...".localized : "Unlock Premium".localized)
+                            Text(purchaseManager.isLoading ? "Processing...".localized : "BUY DIALOG PRO +".localized)
                                 .fontWeight(.semibold)
                         }
                         .frame(maxWidth: .infinity)
                         .padding(.vertical, 10)
-                        .background(Color.primary)
-                        .foregroundColor(.white)
+                        .background(Color(.systemGray6))
+                        .foregroundColor(.primary)
+                        .overlay(
+                            RoundedRectangle(cornerRadius: 8)
+                                .stroke(Color(.systemGray4), lineWidth: 1)
+                        )
                         .clipShape(RoundedRectangle(cornerRadius: 8))
                     }
                     .disabled(purchaseManager.isLoading)

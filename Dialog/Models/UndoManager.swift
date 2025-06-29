@@ -52,7 +52,7 @@ class AppUndoManager: ObservableObject {
                 return "Edit Text".localized
             case .toggleFlag(_, let wasAdd):
                 return wasAdd ? "Flag Text".localized : "Unflag Text".localized
-                    case .renameSpeaker(_, _, _):
+            case .renameSpeaker(_, _, _):
             return "Rename Character".localized
             case .deleteSession(_, _):
                 return "Delete Dialog".localized

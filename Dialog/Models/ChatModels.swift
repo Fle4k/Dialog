@@ -112,10 +112,6 @@ enum Speaker: String, CaseIterable, Codable, Comparable {
     case b = "B"
     case c = "C"
     case d = "D"
-    case e = "E"
-    case f = "F"
-    case g = "G"
-    case h = "H"
     
     func displayName(customNames: [Speaker: String]) -> String {
         if let customName = customNames[self], !customName.isEmpty {

@@ -325,7 +325,7 @@ struct DialogSceneView: View {
         }
                 .alert("Rename Character".localized, isPresented: .constant(viewModel.speakerToRenameFromDialog != nil)) {
             TextField("Character name".localized, text: $newSpeakerName)
-            Button("Cancel".localized, role: .cancel) {
+            Button("Cancel".localized, role: .cancel) { 
                 viewModel.speakerToRenameFromDialog = nil
                 newSpeakerName = ""
             }
@@ -705,7 +705,7 @@ struct DialogSceneView: View {
             // For new sessions, only save once to prevent duplicates
             if isNewSession {
                 if !hasBeenSavedOnce {
-                    onSave?(viewModel)
+            onSave?(viewModel)
                     hasBeenSavedOnce = true
                 }
             } else {
@@ -1246,8 +1246,8 @@ struct SpeakerSelectorView: View {
                     speakerButton(for: speaker)
                 }
                 
-                // Add "+" button if we can add more speakers (max 4) and not in edit mode
-                if !isEditingMode && viewModel.maxSpeakerInUse != .d {
+                // Add "+" button if we can add more speakers and not in edit mode
+                if !isEditingMode && Speaker.next(after: viewModel.maxSpeakerInUse) != nil {
                     plusButton
                 }
             } else {
@@ -1256,8 +1256,8 @@ struct SpeakerSelectorView: View {
                     speakerButton(for: speakerA)
                 }
                 
-                // Add "+" button if we can add more speakers (max 4) and not in edit mode
-                if !isEditingMode && viewModel.maxSpeakerInUse != .d {
+                // Add "+" button if we can add more speakers and not in edit mode
+                if !isEditingMode && Speaker.next(after: viewModel.maxSpeakerInUse) != nil {
                     plusButton
                 }
                 
@@ -1291,7 +1291,7 @@ struct SpeakerSelectorView: View {
     
     @ViewBuilder
     private func speakerButton(for speaker: Speaker) -> some View {
-        HStack {
+                HStack {
             if viewModel.hasMoreThanTwoSpeakers() {
                 // Center alignment for multiple speakers
                 Text(speaker.displayName(customNames: viewModel.customSpeakerNames))
@@ -1301,18 +1301,18 @@ struct SpeakerSelectorView: View {
                     .frame(maxWidth: .infinity)
             } else if speaker == .a {
                 // Left alignment for Speaker A in A/B layout (matches dialog scene)
-                Text(speaker.displayName(customNames: viewModel.customSpeakerNames))
-                    .font(.headline)
-                    .fontWeight(.black)
-                    .foregroundColor(isDisabled ? Color(.systemGray4) : (selectedSpeaker == speaker ? .primary : Color(.systemGray4)))
-                Spacer()
+                        Text(speaker.displayName(customNames: viewModel.customSpeakerNames))
+                            .font(.headline)
+                            .fontWeight(.black)
+                            .foregroundColor(isDisabled ? Color(.systemGray4) : (selectedSpeaker == speaker ? .primary : Color(.systemGray4)))
+                        Spacer()
             } else if speaker == .b {
                 // Right alignment for Speaker B in A/B layout (matches dialog scene)
-                Spacer()
-                Text(speaker.displayName(customNames: viewModel.customSpeakerNames))
-                    .font(.headline)
-                    .fontWeight(.black)
-                    .foregroundColor(isDisabled ? Color(.systemGray4) : (selectedSpeaker == speaker ? .primary : Color(.systemGray4)))
+                        Spacer()
+                        Text(speaker.displayName(customNames: viewModel.customSpeakerNames))
+                            .font(.headline)
+                            .fontWeight(.black)
+                            .foregroundColor(isDisabled ? Color(.systemGray4) : (selectedSpeaker == speaker ? .primary : Color(.systemGray4)))
             } else {
                 // Center alignment for other speakers
                 Text(speaker.displayName(customNames: viewModel.customSpeakerNames))
@@ -1320,32 +1320,32 @@ struct SpeakerSelectorView: View {
                     .fontWeight(.medium)
                     .foregroundColor(isDisabled ? Color(.systemGray4) : (selectedSpeaker == speaker ? .primary : Color(.systemGray4)))
                     .frame(maxWidth: .infinity)
-            }
-        }
-        .frame(maxWidth: .infinity)
-        .frame(height: 32)
-        .contentShape(Rectangle())
-        .opacity(isDisabled ? 0.5 : (isEditingMode ? (selectedSpeaker == speaker ? 1.0 : 0.7) : 1.0))
-        .onTapGesture {
-            guard !isDisabled else { return }
-            if isEditingMode {
-                // In edit mode, temporarily change the selected speaker
-                viewModel.setTemporarySpeaker(speaker)
-            } else {
-                // In normal mode, just select the speaker for new text
-                selectedSpeaker = speaker
-            }
-        }
-        .simultaneousGesture(
-            LongPressGesture(minimumDuration: 0.5)
-                .onEnded { _ in
-                    guard !isDisabled else { return }
-                    speakerToRename = speaker
-                    newSpeakerName = viewModel.customSpeakerNames[speaker] ?? ""
-                    showingRenameAlert = true
+                    }
                 }
-        )
-    }
+                .frame(maxWidth: .infinity)
+                .frame(height: 32)
+                .contentShape(Rectangle())
+                .opacity(isDisabled ? 0.5 : (isEditingMode ? (selectedSpeaker == speaker ? 1.0 : 0.7) : 1.0))
+                .onTapGesture {
+                    guard !isDisabled else { return }
+                    if isEditingMode {
+                        // In edit mode, temporarily change the selected speaker
+                        viewModel.setTemporarySpeaker(speaker)
+                    } else {
+                        // In normal mode, just select the speaker for new text
+                        selectedSpeaker = speaker
+                    }
+                }
+                .simultaneousGesture(
+                    LongPressGesture(minimumDuration: 0.5)
+                        .onEnded { _ in
+                            guard !isDisabled else { return }
+                            speakerToRename = speaker
+                            newSpeakerName = viewModel.customSpeakerNames[speaker] ?? ""
+                            showingRenameAlert = true
+                        }
+                )
+            }
 
     
     private var plusButton: some View {
