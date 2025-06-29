@@ -9,9 +9,6 @@ struct SettingsView: View {
     @Environment(\.openURL) private var openURL
     @Environment(\.colorScheme) private var colorScheme
     
-    // Language transition state
-    @State private var isTransitioning = false
-    
     var body: some View {
         NavigationStack {
             VStack(spacing: 0) {
@@ -27,14 +24,6 @@ struct SettingsView: View {
                     .fontWeight(.semibold)
                 }
             }
-            .overlay(
-                // Fade transition overlay
-                Rectangle()
-                    .fill(colorScheme == .dark ? Color.black : Color.white)
-                    .opacity(isTransitioning ? 1.0 : 0.0)
-                    .animation(.easeInOut(duration: 0.3), value: isTransitioning)
-                    .allowsHitTesting(false)
-            )
         }
         .tint(.primary)
     }
@@ -43,22 +32,7 @@ struct SettingsView: View {
     private func performLanguageChange(to language: String) {
         guard localizationManager.currentLanguage != language else { return }
         
-        // Start transition
-        withAnimation(.easeInOut(duration: 0.3)) {
-            isTransitioning = true
-        }
-        
-        // After fade in completes, change language and fade out
-        DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) {
-            localizationManager.setLanguage(language)
-            
-            // Fade out after language change
-            DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
-                withAnimation(.easeInOut(duration: 0.3)) {
-                    isTransitioning = false
-                }
-            }
-        }
+        localizationManager.setLanguage(language)
     }
     
     // MARK: - Settings List
